@@ -5,7 +5,7 @@ export default function App() {
   const [err, setErr] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:8080/ping")
+    fetch("http://backend:8080/ping")
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setErr(e.toString()));
