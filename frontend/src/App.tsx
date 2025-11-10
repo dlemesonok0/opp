@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function App() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
 
   useEffect(() => {
-    fetch("http://backend:8080/ping")
+    fetch(`http://${API_URL}:8080/ping`)
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setErr(e.toString()));
