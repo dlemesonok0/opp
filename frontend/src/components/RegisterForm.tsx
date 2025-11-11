@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const LoginForm: React.FC = () => {
-  const { login } = useAuth();
+const RegisterForm: React.FC = () => {
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,7 +13,7 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     setErr("");
     try {
-      await login(email, password);
+      await register(email, password);
       navigate("/");
     } catch (e) {
       setErr((e as Error).message);
@@ -22,7 +22,7 @@ const LoginForm: React.FC = () => {
 
   return (
     <form onSubmit={onSubmit} style={{ maxWidth: 320 }}>
-      <h2>Вход</h2>
+      <h2>Регистрация</h2>
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -39,10 +39,10 @@ const LoginForm: React.FC = () => {
         required
         style={{ display: "block", marginBottom: 8, width: "100%" }}
       />
-      <button type="submit">Войти</button>
+      <button type="submit">Создать аккаунт</button>
       {err && <p style={{ color: "red" }}>{err}</p>}
     </form>
   );
 };
 
-export default LoginForm;
+export default RegisterForm;
