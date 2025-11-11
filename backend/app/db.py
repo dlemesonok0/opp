@@ -1,13 +1,18 @@
 import os
+
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, declarative_base
+from pydantic_settings import BaseSettings
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://appuser:apppass@db:5432/appdb"
-)
+class Settings(BaseSettings):
+    DATABASE_URL: str =  os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@db:5432/postgres")
 
-engine = create_engine(DATABASE_URL, echo=False, future=True)
+settings = Settings()
 
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
 
 def init_db():
     with engine.begin() as conn:
@@ -17,3 +22,10 @@ def init_db():
                 message TEXT NOT NULL
             );
         """))
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
