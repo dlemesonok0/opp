@@ -1,5 +1,5 @@
-FROM node:22
+FROM node:22-slim
 WORKDIR /app
 COPY package.json yarn.lock ./
-RUN yarn install
+RUN yarn install --verbose
 COPY . .
