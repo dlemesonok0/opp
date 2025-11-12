@@ -24,8 +24,13 @@ cd opp
 POSTGRES_USER=appuser
 POSTGRES_PASSWORD=apppass
 POSTGRES_DB=appdb
-DATABASE_URL=postgresql+psycopg://appuser:apppass@db:5432/appdb
+DATABASE_URL=postgresql+psycopg2://appuser:apppass@db:5432/appdb
 VITE_API_URL=http://localhost:8080
+
+SECRET_KEY=super-secret
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
 
 ## 6. Запуск проекта

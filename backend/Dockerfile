@@ -2,8 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install fastapi uvicorn[standard] sqlalchemy psycopg[binary] python-dotenv
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+COPY . .
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
