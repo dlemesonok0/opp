@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.user import User
-from app.core.security import get_password_hash, verify_password
+from app.auth.models.user import User
+from app.auth.core.security import get_password_hash, verify_password
 
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()

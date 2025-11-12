@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import init_db, engine, Base
 from sqlalchemy import text
 
-from app.api import users, auth
+from .auth.api import auth, users
 
 Base.metadata.create_all(bind=engine)
 
