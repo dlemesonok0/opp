@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from .core.api import courses, projects, tasks, teams
 from .db import init_db, engine, Base
 from sqlalchemy import text
 
@@ -11,6 +13,11 @@ app = FastAPI()
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(courses.router)
+app.include_router(projects.router)
+app.include_router(tasks.router)
+app.include_router(tasks.plain_router)
+app.include_router(teams.router)
 
 app.add_middleware(
     CORSMiddleware,

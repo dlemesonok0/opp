@@ -9,10 +9,8 @@ from app.core.models.comments import Attachment, Comment
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.models.Base import Base
-from app.core.models.course import Project
-from app.core.models.enum import TaskStatus, CompletionRule, DepType
-from app.core.models.users import User
+from app.core.models.base import Base
+from app.core.models.enums import TaskStatus, CompletionRule, DepType
 
 
 class OutcomeTask(Base):
@@ -32,7 +30,6 @@ class Task(Base):
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
 
-    # hierarchy (parent / children)
     parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
     children: Mapped[List["Task"]] = relationship(
         back_populates="parent",

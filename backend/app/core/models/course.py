@@ -7,10 +7,7 @@ from sqlalchemy import String, ForeignKey, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.models.Base import Base
-from app.core.models.comments import Attachment, Comment
-from app.core.models.review import ReviewProject
-from app.core.models.users import Team
+from app.core.models.base import Base
 
 
 class Course(Base):

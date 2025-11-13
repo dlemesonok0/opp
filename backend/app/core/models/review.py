@@ -5,11 +5,8 @@ from sqlalchemy import ForeignKey, DateTime, func, Enum, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.models.Base import Base
-from app.core.models.course import Project
-from app.core.models.enum import ReviewStatus
-from app.core.models.task import Task
-from app.core.models.users import User
+from app.core.models.base import Base
+from app.core.models.enums import ReviewStatus
 
 
 class ReviewProject(Base):

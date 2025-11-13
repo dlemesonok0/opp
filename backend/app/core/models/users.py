@@ -6,10 +6,7 @@ from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, func, Col
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.models.Base import Base
-from app.core.models.course import Project
-from app.core.models.review import ReviewProject, ReviewTask
-from app.core.models.task import TaskAssignee
+from app.core.models.base import Base
 
 
 class User(Base):

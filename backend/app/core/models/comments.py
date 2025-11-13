@@ -6,9 +6,7 @@ from sqlalchemy import String, ForeignKey, DateTime, func, CheckConstraint, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.models.Base import Base
-from app.core.models.course import Project
-from app.core.models.task import Task
+from app.core.models.base import Base
 
 
 class Comment(Base):
