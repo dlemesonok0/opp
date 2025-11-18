@@ -17,5 +17,5 @@ def revoke_refresh_token(db: Session, jti: str):
 def is_refresh_revoked(db: Session, jti: str) -> bool:
     token = db.query(RefreshToken).filter_by(jti=jti).first()
     if not token:
-        return True  # токена в БД нет — не доверяем
+        return True
     return token.is_revoked
