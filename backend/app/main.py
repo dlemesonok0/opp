@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from .auth.api import auth, users
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 

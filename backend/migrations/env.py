@@ -1,4 +1,6 @@
+import importlib
 import os
+import pkgutil
 from logging.config import fileConfig
 
 from alembic import context
@@ -10,6 +12,12 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+import app  # корневой пакет
+
+for finder, name, ispkg in pkgutil.walk_packages(app.__path__, app.__name__ + "."):
+    if ".models" in name:
+        importlib.import_module(name)
 
 target_metadata = Base.metadata
 
