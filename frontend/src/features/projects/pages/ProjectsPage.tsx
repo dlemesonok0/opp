@@ -4,6 +4,7 @@ import { listCourses } from "../../courses/api/courseApi";
 import type { Course } from "../../courses/api/courseApi";
 import ProjectForm from "../components/ProjectForm";
 import type { ProjectFormValues } from "../components/ProjectForm";
+import ProjectCreationFlow from "../components/ProjectCreationFlow";
 import {
   createProject,
   deleteProject,
@@ -171,6 +172,14 @@ const ProjectsPage = () => {
             ))}
           </div>
         )}
+      </section>
+      <section className="card">
+        <ProjectCreationFlow
+          token={accessToken}
+          courses={courses}
+          onCourseRefresh={fetchCourses}
+          onProjectRefresh={fetchProjects}
+        />
       </section>
     </div>
   );

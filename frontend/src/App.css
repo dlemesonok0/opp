@@ -246,6 +246,63 @@ textarea.input {
   margin: 4px 0 0;
 }
 
+.flow-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.flow-step {
+  background: #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flow-step span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.flow-step strong {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.flow-step.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.flow-step.active span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.flow-step.done {
+  background: #22c55e;
+  color: #fff;
+}
+
+.flow-log {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.flow-log ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
