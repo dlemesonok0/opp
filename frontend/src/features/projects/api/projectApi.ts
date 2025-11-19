@@ -16,6 +16,11 @@ export type Project = {
   outcome: ProjectOutcome;
 };
 
+export type ProjectMembership = Project & {
+  course_title?: string | null;
+  team_name?: string | null;
+};
+
 export type ProjectCreatePayload = {
   title: string;
   description: string;
@@ -44,6 +49,9 @@ export const createProject = (token: string, payload: ProjectCreatePayload) =>
     token,
     body: JSON.stringify(payload),
   });
+
+export const listMyProjects = (token: string) =>
+  apiRequest<ProjectMembership[]>("/users/me/projects", { token });
 
 export const updateProject = (
   token: string,

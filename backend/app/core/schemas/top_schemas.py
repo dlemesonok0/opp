@@ -60,6 +60,11 @@ class ProjectOut(ORM):
     team_id: Optional[UUID] = None
     outcome: OutcomeProjectOut
 
+
+class ProjectMembershipOut(ProjectOut):
+    team_name: str | None = None
+    course_title: str | None = None
+
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str

@@ -246,61 +246,24 @@ textarea.input {
   margin: 4px 0 0;
 }
 
-.flow-wizard {
+.dashboard-hero {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.flow-steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 
-.flow-step {
-  background: #e5e7eb;
-  border-radius: 12px;
-  padding: 10px 14px;
+.dashboard-hero__stats {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.flow-step span {
-  font-size: 0.85rem;
+.stat-pill {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 6px 16px;
+  border-radius: 999px;
   font-weight: 600;
-  color: #6b7280;
-}
-
-.flow-step strong {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.flow-step.active {
-  background: #2563eb;
-  color: #fff;
-}
-
-.flow-step.active span {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.flow-step.done {
-  background: #22c55e;
-  color: #fff;
-}
-
-.flow-log {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.flow-log ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
 }
 
 .stack {
@@ -314,6 +277,22 @@ textarea.input {
   border-radius: 12px;
   padding: 12px;
   border: 1px dashed #cbd5f5;
+}
+
+.project-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.dashboard-empty {
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
 }
 
 .checklist {
