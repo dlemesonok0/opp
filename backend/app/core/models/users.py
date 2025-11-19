@@ -13,7 +13,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    full_name: Mapped[str] = mapped_column("full_name", String(200), nullable=False)
+    full_name: Mapped[str] = mapped_column("full_name", String(200), nullable=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
 
     memberships: Mapped[List["Membership"]] = relationship(back_populates="user", cascade="all, delete-orphan")
