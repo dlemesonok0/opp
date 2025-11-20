@@ -7,7 +7,7 @@ const MainLayout = () => {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar__brand">OPP Lab</div>
+        <div className="sidebar__brand">ТОП НАЗВАНИЕ</div>
         <nav className="sidebar__nav">
           <NavLink to="/" end>
             Дашборд

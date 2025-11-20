@@ -22,6 +22,11 @@ class OutcomeProjectIn(BaseModel):
     acceptanceCriteria: str
     deadline: datetime
 
+class OutcomeProjectUpdate(BaseModel):
+    description: Optional[str] = None
+    acceptanceCriteria: Optional[str] = None
+    deadline: Optional[datetime] = None
+
 class OutcomeProjectOut(ORM):
     id: UUID
     description: str
@@ -51,6 +56,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     courseId: Optional[UUID] = None
     teamId: Optional[UUID] = None
+    outcome: Optional[OutcomeProjectUpdate] = None
 
 class ProjectOut(ORM):
     id: UUID

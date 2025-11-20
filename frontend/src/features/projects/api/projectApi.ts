@@ -38,6 +38,11 @@ export type ProjectUpdatePayload = {
   description?: string;
   courseId?: string | null;
   teamId?: string | null;
+  outcome?: {
+    description?: string;
+    acceptanceCriteria?: string;
+    deadline?: string;
+  };
 };
 
 export const listProjects = (token: string) =>
