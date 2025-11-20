@@ -24,6 +24,7 @@ const DashboardPage = () => {
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const fetchCourses = useCallback(async () => {
     if (!accessToken) return;
@@ -106,6 +107,7 @@ const DashboardPage = () => {
 
       setProjectTitle("");
       setFormStatus("Команда создана, вы добавлены в участники и проект готов.");
+      setShowCreateModal(false);
       await fetchMyProjects();
     } catch (error) {
       setFormError((error as Error).message);
@@ -116,6 +118,17 @@ const DashboardPage = () => {
 
   const totalProjects = myProjects.length;
 
+  const openCreateModal = () => {
+    setFormError(null);
+    setFormStatus(null);
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    if (formLoading) return;
+    setShowCreateModal(false);
+  };
+
   return (
     <div className="stack">
       <section className="card">
@@ -123,116 +136,127 @@ const DashboardPage = () => {
           <div>
             <h2>Ваши проекты</h2>
             <p className="muted">
-              Здесь собраны команды, где вы состоите. Создайте новую команду за пару кликов.
+              Здесь собраны команды, где вы состоите. Создайте новый проект и команду за пару кликов.
             </p>
           </div>
           <div className="dashboard-hero__stats">
             <span className="stat-pill">{totalProjects} проектов</span>
             <span className="stat-pill">{courses.length} предметов</span>
+            <button className="primary-btn" onClick={openCreateModal} disabled={loadingCourses}>
+              Создать проект
+            </button>
           </div>
         </div>
       </section>
 
-      <div className="grid">
-        <section className="card">
-          <div className="table-header">
-            <div>
-              <h3>Мои проекты</h3>
-              <p className="muted">Команды, в которых вы состоите</p>
-            </div>
-            {loadingProjects && <span className="tag">Обновляем...</span>}
+      <section className="card">
+        <div className="table-header">
+          <div>
+            <h3>Мои проекты</h3>
+            <p className="muted">Команды, в которых вы состоите</p>
           </div>
-          {projectsError && <p className="form-error">{projectsError}</p>}
-          {loadingProjects ? (
-            <p>Загружаем список...</p>
-          ) : myProjects.length === 0 ? (
-            <div className="dashboard-empty">
-              <p>Пока нет ни одного проекта. Создайте первый.</p>
-            </div>
-          ) : (
-            <div className="stack">
-              {myProjects.map((project) => (
-                <article key={project.id} className="project-card">
-                  <header>
-                    <div>
-                      <h4>{project.title}</h4>
-                      <p className="muted">{project.description}</p>
-                    </div>
-                    <span className="tag">{project.course_title ?? "Без предмета"}</span>
-                  </header>
-                  <div className="project-meta">
-                    <span>Команда: {project.team_name ?? "не назначена"}</span>
-                    <span>
-                      Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
-                    </span>
+          {loadingProjects && <span className="tag">Обновляем...</span>}
+        </div>
+        {projectsError && <p className="form-error">{projectsError}</p>}
+        {loadingProjects ? (
+          <p>Загружаем список...</p>
+        ) : myProjects.length === 0 ? (
+          <div className="dashboard-empty">
+            <p>Пока нет ни одного проекта. Создайте первый.</p>
+          </div>
+        ) : (
+          <div className="stack">
+            {myProjects.map((project) => (
+              <Link
+                to={`/projects/${project.id}`}
+                key={project.id}
+                className="project-card clickable-card"
+              >
+                <header>
+                  <div>
+                    <h4>{project.title}</h4>
+                    <p className="muted">{project.description}</p>
                   </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="card">
-          <div className="table-header">
-            <div>
-              <h3>Создать команду</h3>
-              <p className="muted">Выберите предмет и придумайте название проекта</p>
-            </div>
-            {formLoading && <span className="tag">Сохраняем...</span>}
-          </div>
-          {coursesError && <p className="form-error">{coursesError}</p>}
-          {loadingCourses ? (
-            <p>Загружаем список предметов...</p>
-          ) : courses.length === 0 ? (
-            <div className="dashboard-empty">
-              <p>Нет предметов. Добавьте хотя бы один на странице предметов.</p>
-              <Link className="primary-btn" to="/courses">
-                Перейти к предметам
+                  <span className="tag">{project.course_title ?? "Без предмета"}</span>
+                </header>
+                <div className="project-meta">
+                  <span>Команда: {project.team_name ?? "не назначена"}</span>
+                  <span>
+                    Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
+                  </span>
+                </div>
+                <span className="muted">Открыть проект →</span>
               </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {showCreateModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="table-header">
+              <div>
+                <h3>Создать проект</h3>
+                <p className="muted">Выберите предмет и придумайте название</p>
+              </div>
+              <button className="ghost-btn" onClick={closeCreateModal} aria-label="Закрыть">
+                ✕
+              </button>
             </div>
-          ) : (
-            <form className="form" onSubmit={handleCreateTeam}>
-              <div className="form-field">
-                <label htmlFor="dashboard-course">Предмет</label>
-                <select
-                  id="dashboard-course"
-                  className="input"
-                  value={formCourseId}
-                  onChange={(event) => setFormCourseId(event.target.value)}
-                >
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
+
+            {coursesError && <p className="form-error">{coursesError}</p>}
+            {loadingCourses ? (
+              <p>Загружаем список предметов...</p>
+            ) : courses.length === 0 ? (
+              <div className="dashboard-empty">
+                <p>Нет предметов. Добавьте хотя бы один на странице предметов.</p>
+                <Link className="primary-btn" to="/courses">
+                  Перейти к предметам
+                </Link>
               </div>
-              <div className="form-field">
-                <label htmlFor="dashboard-project">Название проекта</label>
-                <input
-                  id="dashboard-project"
-                  className="input"
-                  value={projectTitle}
-                  onChange={(event) => setProjectTitle(event.target.value)}
-                  placeholder="Например, Платформа наставника"
-                />
-              </div>
-              <div className="form-actions">
-                <button className="primary-btn" type="submit" disabled={formLoading}>
-                  {formLoading ? "Создаём..." : "Создать команду"}
-                </button>
-              </div>
-              {formStatus && <p className="muted">{formStatus}</p>}
-              {formError && <p className="form-error">{formError}</p>}
-            </form>
-          )}
-          {!loadingCourses && courses.length > 0 && (
-            <p className="muted">
-              Нужна дополнительная информация? Затем дополните проект на вкладке «Проекты».
-            </p>
-          )}
-        </section>
-      </div>
+            ) : (
+              <form className="form" onSubmit={handleCreateTeam}>
+                <div className="form-field">
+                  <label htmlFor="dashboard-course">Предмет</label>
+                  <select
+                    id="dashboard-course"
+                    className="input"
+                    value={formCourseId}
+                    onChange={(event) => setFormCourseId(event.target.value)}
+                  >
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label htmlFor="dashboard-project">Название проекта</label>
+                  <input
+                    id="dashboard-project"
+                    className="input"
+                    value={projectTitle}
+                    onChange={(event) => setProjectTitle(event.target.value)}
+                    placeholder="Например, Платформа наставника"
+                  />
+                </div>
+                <div className="form-actions">
+                  <button className="ghost-btn" type="button" onClick={closeCreateModal}>
+                    Отменить
+                  </button>
+                  <button className="primary-btn" type="submit" disabled={formLoading}>
+                    {formLoading ? "Создаём..." : "Создать"}
+                  </button>
+                </div>
+                {formStatus && <p className="muted">{formStatus}</p>}
+                {formError && <p className="form-error">{formError}</p>}
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

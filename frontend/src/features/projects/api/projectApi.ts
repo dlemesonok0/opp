@@ -69,3 +69,6 @@ export const deleteProject = (token: string, projectId: string) =>
     method: "DELETE",
     token,
   });
+
+export const getProject = (token: string, projectId: string) =>
+  apiRequest<Project>(`/projects/${projectId}`, { token });
