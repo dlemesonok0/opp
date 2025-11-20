@@ -124,18 +124,6 @@ const ProjectsPage = () => {
   return (
     <div className="grid">
       <section className="card">
-        <ProjectForm
-          mode={editingProject ? "edit" : "create"}
-          courses={courses}
-          initialProject={editingProject ?? undefined}
-          onSubmit={handleSubmit}
-          onCancel={() => setEditingProject(null)}
-          loading={saving}
-        />
-        {(loadingCourses || loadingProjects) && <p className="muted">Обновляем данные...</p>}
-        {error && <p className="form-error">{error}</p>}
-      </section>
-      <section className="card">
         <div className="table-header">
           <div>
             <h3>Проекты</h3>
