@@ -6,21 +6,23 @@ import MainLayout from "../layout/MainLayout";
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../../features/courses/pages/CoursesPage";
 import ProjectsPage from "../../features/projects/pages/ProjectsPage";
+import ProjectDetailPage from "../../features/projects/pages/ProjectDetailPage";
 
 const AppRouter = () => (
   <BrowserRouter>
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route element={<PrivateRoute />}>
-        <Route element={<MainLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="courses" element={<CoursesPage />} />
-          <Route path="projects" element={<ProjectsPage />} />
-        </Route>
-      </Route>
-    </Routes>
-  </BrowserRouter>
-);
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route element={<PrivateRoute />}>
+            <Route element={<MainLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="courses" element={<CoursesPage />} />
+              <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    );
 
 export default AppRouter;

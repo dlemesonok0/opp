@@ -30,6 +30,9 @@ class Team(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     memberships: Mapped[List["Membership"]] = relationship(back_populates="team", cascade="all, delete-orphan")
     projects: Mapped[List["Project"]] = relationship(back_populates="team")

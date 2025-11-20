@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    full_name: str | None = None
 
     class Config:
         from_attributes = True
