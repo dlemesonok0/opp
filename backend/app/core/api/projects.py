@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
+from app.auth.api.deps import get_current_user
 from app.core.models.course import Course, OutcomeProject, Project
-from app.core.models.users import Team
+from app.core.models.users import Membership, Team, User
 from app.core.schemas.top_schemas import ProjectOut, ProjectCreate, ProjectUpdate
 from app.db import get_db
 
@@ -87,9 +88,25 @@ def update_project(project_id: UUID, payload: ProjectUpdate, db: Session = Depen
     return proj
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: UUID, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     proj = db.get(Project, project_id)
     if not proj:
         raise HTTPException(404, "Project not found")
+
+    if not proj.team_id:
+        raise HTTPException(403, "Project has no team; only team members can delete it")
+
+    membership = (
+        db.query(Membership)
+        .filter(Membership.team_id == proj.team_id, Membership.user_id == current_user.id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(403, "You are not allowed to delete this project")
+
     db.delete(proj)
     db.commit()
