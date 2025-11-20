@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import type { Course } from "../../courses/api/courseApi";
 import type { Project } from "../api/projectApi";
 
@@ -58,7 +58,7 @@ const ProjectForm = ({
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit(values);
   };
@@ -103,60 +103,39 @@ const ProjectForm = ({
           ))}
         </select>
       </div>
-      {mode === "create" ? (
-        <>
-          <div className="form-field">
-            <label htmlFor="outcome-description">Ожидаемый результат</label>
-            <textarea
-              id="outcome-description"
-              className="input"
-              rows={3}
-              value={values.outcomeDescription}
-              onChange={(event) => updateField("outcomeDescription", event.target.value)}
-              required
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="outcome-criteria">Критерии приёмки</label>
-            <textarea
-              id="outcome-criteria"
-              className="input"
-              rows={2}
-              value={values.outcomeAcceptanceCriteria}
-              onChange={(event) =>
-                updateField("outcomeAcceptanceCriteria", event.target.value)
-              }
-              required
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="outcome-deadline">Дедлайн</label>
-            <input
-              id="outcome-deadline"
-              type="datetime-local"
-              className="input"
-              value={values.outcomeDeadline}
-              onChange={(event) => updateField("outcomeDeadline", event.target.value)}
-              required
-            />
-          </div>
-        </>
-      ) : (
-        initialProject && (
-          <div className="info-block">
-            <h4>Ожидаемый результат</h4>
-            <p>
-              <strong>Описание:</strong> {initialProject.outcome.description}
-            </p>
-            <p>
-              <strong>Критерии:</strong> {initialProject.outcome.acceptance_criteria}
-            </p>
-            <p>
-              <strong>Дедлайн:</strong> {new Date(initialProject.outcome.deadline).toLocaleString("ru-RU")}
-            </p>
-          </div>
-        )
-      )}
+      <div className="form-field">
+        <label htmlFor="outcome-description">Ожидаемый результат</label>
+        <textarea
+          id="outcome-description"
+          className="input"
+          rows={3}
+          value={values.outcomeDescription}
+          onChange={(event) => updateField("outcomeDescription", event.target.value)}
+          required
+        />
+      </div>
+      <div className="form-field">
+        <label htmlFor="outcome-criteria">Критерии приёмки</label>
+        <textarea
+          id="outcome-criteria"
+          className="input"
+          rows={2}
+          value={values.outcomeAcceptanceCriteria}
+          onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
+          required
+        />
+      </div>
+      <div className="form-field">
+        <label htmlFor="outcome-deadline">Дедлайн</label>
+        <input
+          id="outcome-deadline"
+          type="datetime-local"
+          className="input"
+          value={values.outcomeDeadline}
+          onChange={(event) => updateField("outcomeDeadline", event.target.value)}
+          required
+        />
+      </div>
       <div className="form-actions">
         {initialProject && (
           <button className="ghost-btn" type="button" onClick={onCancel}>

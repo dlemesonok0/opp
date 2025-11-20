@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
-import { getProject, type Project } from "../api/projectApi";
-import { listProjectTasks, type Task } from "../../tasks/api/taskApi";
+import { listCourses, type Course } from "../../courses/api/courseApi";
+import {
+  getProject,
+  updateProject,
+  type Project,
+  type ProjectUpdatePayload,
+} from "../api/projectApi";
+import { createTask, listProjectTasks, type Task } from "../../tasks/api/taskApi";
+import ProjectForm, { type ProjectFormValues } from "../components/ProjectForm";
+import TaskForm, { type TaskFormValues } from "../../tasks/components/TaskForm";
 
 type TimelineBounds = {
   min: number;
@@ -35,11 +43,16 @@ const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const { accessToken } = useAuth();
 
+  const [courses, setCourses] = useState<Course[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [loadingProject, setLoadingProject] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingProject, setSavingProject] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -60,6 +73,27 @@ const ProjectDetailPage = () => {
   }, [accessToken, projectId]);
 
   useEffect(() => {
+    const loadCourses = async () => {
+      if (!accessToken) {
+        setLoadingCourses(false);
+        return;
+      }
+      setLoadingCourses(true);
+      setError(null);
+      try {
+        const data = await listCourses(accessToken);
+        setCourses(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    void loadCourses();
+  }, [accessToken]);
+
+  useEffect(() => {
     const loadTasks = async () => {
       if (!projectId || !accessToken) return;
       setLoadingTasks(true);
@@ -76,6 +110,60 @@ const ProjectDetailPage = () => {
 
     void loadTasks();
   }, [accessToken, projectId]);
+
+  const handleCreateTask = async (values: TaskFormValues) => {
+    if (!accessToken || !projectId) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await createTask(accessToken, projectId, {
+        title: values.title,
+        description: values.description,
+        duration: values.duration,
+        plannedStart: new Date(values.plannedStart).toISOString(),
+        plannedEnd: new Date(values.plannedEnd).toISOString(),
+        isMilestone: values.isMilestone,
+        completionRule: values.completionRule,
+        parentId: values.parentId || null,
+        outcome: {
+          description: values.outcomeDescription,
+          acceptanceCriteria: values.outcomeAcceptanceCriteria,
+          deadline: new Date(values.outcomeDeadline).toISOString(),
+        },
+      });
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleUpdateProject = async (values: ProjectFormValues) => {
+    if (!accessToken || !project) return;
+    setSavingProject(true);
+    setError(null);
+    try {
+      const payload: ProjectUpdatePayload = {
+        title: values.title,
+        description: values.description,
+        courseId: values.courseId || null,
+        outcome: {
+          description: values.outcomeDescription,
+          acceptanceCriteria: values.outcomeAcceptanceCriteria,
+          deadline: new Date(values.outcomeDeadline).toISOString(),
+        },
+      };
+      const updated = await updateProject(accessToken, project.id, payload);
+      setProject(updated);
+      setShowEditModal(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingProject(false);
+    }
+  };
 
   const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
 
@@ -121,6 +209,34 @@ const ProjectDetailPage = () => {
 
       {error && <p className="form-error">{error}</p>}
 
+      {showEditModal && project && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal" style={{ minWidth: "640px" }}>
+            <div className="table-header">
+              <div>
+                <h3>Редактировать проект</h3>
+                <p className="muted">Название, описание, предмет и дедлайн</p>
+              </div>
+              <button className="ghost-btn" onClick={() => setShowEditModal(false)} aria-label="Закрыть">
+                ✕
+              </button>
+            </div>
+            {loadingCourses ? (
+              <p>Загружаем предметы...</p>
+            ) : (
+              <ProjectForm
+                mode="edit"
+                courses={courses}
+                initialProject={project}
+                onSubmit={handleUpdateProject}
+                onCancel={() => setShowEditModal(false)}
+                loading={savingProject}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       <section className="card">
         {loadingProject ? (
           <p>Загружаем данные проекта...</p>
@@ -128,24 +244,31 @@ const ProjectDetailPage = () => {
           <p>Проект не найден.</p>
         ) : (
           <div className="stack">
-            <div className="table-header">
-              <div>
-                <h3>{project.title}</h3>
-                <p className="muted">{project.description}</p>
+              <div className="table-header">
+                <div>
+                  <h3>{project.title}</h3>
+                  <p className="muted">{project.description}</p>
+                </div>
+                <div className="stack" style={{ alignItems: "flex-end", gap: "0.5rem" }}>
+                  <span className="tag">{project.course_id ? "Привязан к предмету" : "Без предмета"}</span>
+                  <span className="muted">
+                    Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
+                  </span>
+                  <button className="ghost-btn" onClick={() => setShowEditModal(true)} disabled={loadingCourses}>
+                    {loadingCourses ? "Загружаем..." : "Редактировать"}
+                  </button>
+                </div>
               </div>
-              <div className="stack" style={{ alignItems: "flex-end" }}>
-                <span className="tag">{project.course_id ? "Привязан к предмету" : "Без предмета"}</span>
-                <span className="muted">
-                  Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
-                </span>
+              <div className="info-block">
+                <p className="muted">Критерии приёмки</p>
+                <p>{project.outcome.acceptance_criteria}</p>
               </div>
-            </div>
-            <div className="info-block">
-              <p className="muted">Критерии приёмки</p>
-              <p>{project.outcome.acceptance_criteria}</p>
-            </div>
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <TaskForm tasks={tasks} loading={savingTask} onSubmit={handleCreateTask} />
       </section>
 
       <section className="card">

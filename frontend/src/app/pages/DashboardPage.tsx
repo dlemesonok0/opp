@@ -21,6 +21,10 @@ const DashboardPage = () => {
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [formCourseId, setFormCourseId] = useState<string>("");
   const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectOutcomeDescription, setProjectOutcomeDescription] = useState("");
+  const [projectOutcomeCriteria, setProjectOutcomeCriteria] = useState("");
+  const [projectOutcomeDeadline, setProjectOutcomeDeadline] = useState<string>("");
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
@@ -70,6 +74,9 @@ const DashboardPage = () => {
     [courses, formCourseId]
   );
 
+  const defaultOutcomeDeadline = () =>
+    new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 16);
+
   const handleCreateTeam = async (event: FormEvent) => {
     event.preventDefault();
     if (!accessToken || !user) return;
@@ -83,6 +90,20 @@ const DashboardPage = () => {
       setFormError("Нужен хотя бы один предмет");
       return;
     }
+    if (!projectDescription.trim()) {
+      setFormError("Добавьте описание проекта");
+      return;
+    }
+    if (!projectOutcomeDescription.trim() || !projectOutcomeCriteria.trim()) {
+      setFormError("Заполните описание результата и критерии");
+      return;
+    }
+
+    const deadlineDate = new Date(projectOutcomeDeadline);
+    if (!Number.isFinite(deadlineDate.getTime())) {
+      setFormError("Выберите корректный дедлайн");
+      return;
+    }
 
     setFormLoading(true);
     setFormError(null);
@@ -92,20 +113,23 @@ const DashboardPage = () => {
       const team = await createTeam(accessToken, { name: teamName });
       await addTeamMember(accessToken, team.id, { userId: user.id });
 
-      const deadline = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
       await createProject(accessToken, {
         title,
-        description: `Команда работает над проектом «${title}» в рамках курса «${selectedCourse.title}».`,
+        description: projectDescription,
         courseId: selectedCourse.id,
         teamId: team.id,
         outcome: {
-          description: `Демо-проект «${title}» с отчетом о проделанной работе.`,
-          acceptanceCriteria: "Готова презентация, показано демо и собраны отзывы наставника.",
-          deadline: deadline.toISOString(),
+          description: projectOutcomeDescription,
+          acceptanceCriteria: projectOutcomeCriteria,
+          deadline: deadlineDate.toISOString(),
         },
       });
 
       setProjectTitle("");
+      setProjectDescription("");
+      setProjectOutcomeDescription("");
+      setProjectOutcomeCriteria("");
+      setProjectOutcomeDeadline(defaultOutcomeDeadline());
       setFormStatus("Команда создана, вы добавлены в участники и проект готов.");
       setShowCreateModal(false);
       await fetchMyProjects();
@@ -121,6 +145,11 @@ const DashboardPage = () => {
   const openCreateModal = () => {
     setFormError(null);
     setFormStatus(null);
+    setProjectTitle("");
+    setProjectDescription("");
+    setProjectOutcomeDescription("");
+    setProjectOutcomeCriteria("");
+    setProjectOutcomeDeadline(defaultOutcomeDeadline());
     setShowCreateModal(true);
   };
 
@@ -240,6 +269,49 @@ const DashboardPage = () => {
                     value={projectTitle}
                     onChange={(event) => setProjectTitle(event.target.value)}
                     placeholder="Например, Платформа наставника"
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="dashboard-project-description">Описание</label>
+                  <textarea
+                    id="dashboard-project-description"
+                    className="input"
+                    rows={3}
+                    value={projectDescription}
+                    onChange={(event) => setProjectDescription(event.target.value)}
+                    placeholder="Что делает команда, какую проблему решает"
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="dashboard-outcome-description">Ожидаемый результат</label>
+                  <textarea
+                    id="dashboard-outcome-description"
+                    className="input"
+                    rows={2}
+                    value={projectOutcomeDescription}
+                    onChange={(event) => setProjectOutcomeDescription(event.target.value)}
+                    placeholder="Например, демо с отчётом о проделанной работе"
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="dashboard-outcome-criteria">Критерии приёмки</label>
+                  <textarea
+                    id="dashboard-outcome-criteria"
+                    className="input"
+                    rows={2}
+                    value={projectOutcomeCriteria}
+                    onChange={(event) => setProjectOutcomeCriteria(event.target.value)}
+                    placeholder="Что должно быть готово, чтобы считать проект завершённым"
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="dashboard-outcome-deadline">Дедлайн</label>
+                  <input
+                    id="dashboard-outcome-deadline"
+                    type="datetime-local"
+                    className="input"
+                    value={projectOutcomeDeadline}
+                    onChange={(event) => setProjectOutcomeDeadline(event.target.value)}
                   />
                 </div>
                 <div className="form-actions">

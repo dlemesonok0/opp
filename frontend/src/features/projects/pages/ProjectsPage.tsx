@@ -7,20 +7,24 @@ import type { ProjectFormValues } from "../components/ProjectForm";
 import {
   createProject,
   deleteProject,
-  listProjects,
+  listMyProjects,
   updateProject,
 } from "../api/projectApi";
-import type { Project, ProjectCreatePayload, ProjectUpdatePayload } from "../api/projectApi";
+import type {
+  ProjectCreatePayload,
+  ProjectMembership,
+  ProjectUpdatePayload,
+} from "../api/projectApi";
 
 const ProjectsPage = () => {
   const { accessToken } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectMembership[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<ProjectMembership | null>(null);
 
   const fetchCourses = useCallback(async () => {
     if (!accessToken) return;
@@ -41,7 +45,7 @@ const ProjectsPage = () => {
     setLoadingProjects(true);
     setError(null);
     try {
-      const data = await listProjects(accessToken);
+      const data = await listMyProjects(accessToken);
       setProjects(data);
     } catch (e) {
       setError((e as Error).message);
@@ -65,6 +69,11 @@ const ProjectsPage = () => {
           title: values.title,
           description: values.description,
           courseId: values.courseId || null,
+          outcome: {
+            description: values.outcomeDescription,
+            acceptanceCriteria: values.outcomeAcceptanceCriteria,
+            deadline: new Date(values.outcomeDeadline).toISOString(),
+          },
         };
         await updateProject(accessToken, editingProject.id, payload);
         setEditingProject(null);
