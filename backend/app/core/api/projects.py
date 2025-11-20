@@ -46,8 +46,13 @@ def list_projects(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Project)
+    query = (
+        db.query(Project)
+        .join(Membership, Membership.team_id == Project.team_id)
+        .filter(Membership.user_id == current_user.id)
+    )
     if courseId:
         query = query.filter(Project.course_id == courseId)
     if teamId:
