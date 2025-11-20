@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
 import { getProject, type Project } from "../api/projectApi";
-import { listProjectTasks, type Task } from "../../tasks/api/taskApi";
+import { createTask, listProjectTasks, type Task } from "../../tasks/api/taskApi";
+import TaskForm, { type TaskFormValues } from "../../tasks/components/TaskForm";
 
 type TimelineBounds = {
   min: number;
@@ -40,6 +41,7 @@ const ProjectDetailPage = () => {
   const [loadingProject, setLoadingProject] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingTask, setSavingTask] = useState(false);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -76,6 +78,35 @@ const ProjectDetailPage = () => {
 
     void loadTasks();
   }, [accessToken, projectId]);
+
+  const handleCreateTask = async (values: TaskFormValues) => {
+    if (!accessToken || !projectId) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await createTask(accessToken, projectId, {
+        title: values.title,
+        description: values.description,
+        duration: values.duration,
+        plannedStart: new Date(values.plannedStart).toISOString(),
+        plannedEnd: new Date(values.plannedEnd).toISOString(),
+        isMilestone: values.isMilestone,
+        completionRule: values.completionRule,
+        parentId: values.parentId || null,
+        outcome: {
+          description: values.outcomeDescription,
+          acceptanceCriteria: values.outcomeAcceptanceCriteria,
+          deadline: new Date(values.outcomeDeadline).toISOString(),
+        },
+      });
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
 
   const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
 
@@ -146,6 +177,10 @@ const ProjectDetailPage = () => {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <TaskForm tasks={tasks} loading={savingTask} onSubmit={handleCreateTask} />
       </section>
 
       <section className="card">

@@ -87,7 +87,6 @@ const CoursesPage = () => {
         <div className="table-header">
           <div>
             <h3>Предметы</h3>
-            <p className="muted">Данные подтягиваются из API FastAPI</p>
           </div>
           {saving && <span className="tag">Сохраняем...</span>}
         </div>
