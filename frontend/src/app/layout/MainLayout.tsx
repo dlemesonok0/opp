@@ -7,12 +7,11 @@ const MainLayout = () => {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar__brand">ТОП НАЗВАНИЕ</div>
+        <div className="sidebar__brand">Opp</div>
         <nav className="sidebar__nav">
           <NavLink to="/" end>
             Дашборд
           </NavLink>
-          <NavLink to="/courses">Предметы</NavLink>
           <NavLink to="/projects">Проекты</NavLink>
         </nav>
         <div className="sidebar__footer">
@@ -24,8 +23,8 @@ const MainLayout = () => {
       </aside>
       <main className="content">
         <header className="page-header">
-          <h1>Портфель проектов</h1>
-          <p>Управляйте учебными предметами и командами из одного места</p>
+          <h1>Управление проектами</h1>
+          <p>Ведите дорожные карты, задачи и команды без привязки к предметам.</p>
         </header>
         <div className="page-content">
           <Outlet />

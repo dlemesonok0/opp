@@ -1,5 +1,4 @@
 import uuid
-from asyncio import Task
 from datetime import datetime
 from typing import List, Optional
 
@@ -8,15 +7,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.models.base import Base
-
-
-class Course(Base):
-    __tablename__ = "courses"
-
-    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-
-    projects: Mapped[List["Project"]] = relationship(back_populates="course")
 
 
 class OutcomeProject(Base):
@@ -37,13 +27,11 @@ class Project(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
-    course_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("courses.id"), nullable=True)
     team_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("teams.id"), nullable=True)
     outcome_project_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("outcome_projects.id", ondelete="RESTRICT"), nullable=False
     )
 
-    course: Mapped[Optional["Course"]] = relationship(back_populates="projects")
     team: Mapped[Optional["Team"]] = relationship(back_populates="projects")
     outcome: Mapped["OutcomeProject"] = relationship(back_populates="project")
     tasks: Mapped[List["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")

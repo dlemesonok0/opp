@@ -43,7 +43,6 @@ def list_my_projects(
         .join(Membership, Membership.team_id == Team.id)
         .options(
             selectinload(Project.outcome),
-            selectinload(Project.course),
             selectinload(Project.team),
         )
         .filter(Membership.user_id == current_user.id)
@@ -57,7 +56,6 @@ def list_my_projects(
         enriched.append(
             ProjectMembershipOut(
                 **base.model_dump(),
-                course_title=project.course.title if project.course else None,
                 team_name=project.team.name if project.team else None,
             )
         )

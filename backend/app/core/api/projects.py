@@ -4,7 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from app.auth.api.deps import get_current_user
-from app.core.models.course import Course, OutcomeProject, Project
+from app.core.models.course import OutcomeProject, Project
 from app.core.models.users import Membership, Team, User
 from app.core.schemas.top_schemas import ProjectOut, ProjectCreate, ProjectUpdate
 from app.db import get_db
@@ -28,8 +28,6 @@ def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if payload.courseId and not db.get(Course, payload.courseId):
-        raise HTTPException(404, "Course not found")
     if payload.teamId:
         team = db.get(Team, payload.teamId)
         if not team:
@@ -47,7 +45,6 @@ def create_project(
     proj = Project(
         title=payload.title,
         description=payload.description,
-        course_id=payload.courseId,
         team_id=payload.teamId,
         outcome_project_id=op.id,
     )
@@ -58,7 +55,6 @@ def create_project(
 
 @router.get("", response_model=List[ProjectOut])
 def list_projects(
-    courseId: Optional[UUID] = None,
     teamId: Optional[UUID] = None,
     q: Optional[str] = Query(default=None, description="search in title/description"),
     limit: int = 50,
@@ -71,8 +67,6 @@ def list_projects(
         .join(Membership, Membership.team_id == Project.team_id)
         .filter(Membership.user_id == current_user.id)
     )
-    if courseId:
-        query = query.filter(Project.course_id == courseId)
     if teamId:
         query = query.filter(Project.team_id == teamId)
     if q:
@@ -115,15 +109,11 @@ def update_project(
         proj.title = payload.title
     if payload.description is not None:
         proj.description = payload.description
-    if payload.courseId is not None:
-        if payload.courseId and not db.get(Course, payload.courseId):
-            raise HTTPException(404, "Course not found")
-        proj.course_id = payload.courseId
     if payload.teamId is not None:
         if payload.teamId:
             if not db.get(Team, payload.teamId):
                 raise HTTPException(404, "Team not found")
-            _require_membership(db, payload.teamId, current_user.id, "update")
+                _require_membership(db, payload.teamId, current_user.id, "update")
         proj.team_id = payload.teamId
     if payload.outcome:
         if payload.outcome.description is not None:

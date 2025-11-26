@@ -7,16 +7,6 @@ from uuid import UUID
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-class CourseCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-
-class CourseUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
-
-class CourseOut(ORM):
-    id: UUID
-    title: str
-
 class OutcomeProjectIn(BaseModel):
     description: str
     acceptanceCriteria: str
@@ -47,14 +37,12 @@ class OutcomeTaskOut(ORM):
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
-    courseId: Optional[UUID] = None
     teamId: Optional[UUID] = None
     outcome: OutcomeProjectIn
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
-    courseId: Optional[UUID] = None
     teamId: Optional[UUID] = None
     outcome: Optional[OutcomeProjectUpdate] = None
 
@@ -62,14 +50,12 @@ class ProjectOut(ORM):
     id: UUID
     title: str
     description: str
-    course_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
     outcome: OutcomeProjectOut
 
 
 class ProjectMembershipOut(ProjectOut):
     team_name: str | None = None
-    course_title: str | None = None
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)

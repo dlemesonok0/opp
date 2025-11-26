@@ -4,7 +4,6 @@ import LoginPage from "../../features/auth/pages/LoginPage";
 import RegisterPage from "../../features/auth/pages/RegisterPage";
 import MainLayout from "../layout/MainLayout";
 import DashboardPage from "../pages/DashboardPage";
-import CoursesPage from "../../features/courses/pages/CoursesPage";
 import ProjectsPage from "../../features/projects/pages/ProjectsPage";
 import ProjectDetailPage from "../../features/projects/pages/ProjectDetailPage";
 
@@ -16,7 +15,6 @@ const AppRouter = () => (
           <Route element={<PrivateRoute />}>
             <Route element={<MainLayout />}>
               <Route index element={<DashboardPage />} />
-              <Route path="courses" element={<CoursesPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             </Route>

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
-import { listCourses, type Course } from "../../courses/api/courseApi";
 import {
   getProject,
   updateProject,
@@ -43,13 +42,11 @@ const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const { accessToken } = useAuth();
 
-  const [courses, setCourses] = useState<Course[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [loadingProject, setLoadingProject] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingProject, setSavingProject] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
@@ -71,27 +68,6 @@ const ProjectDetailPage = () => {
 
     void loadProject();
   }, [accessToken, projectId]);
-
-  useEffect(() => {
-    const loadCourses = async () => {
-      if (!accessToken) {
-        setLoadingCourses(false);
-        return;
-      }
-      setLoadingCourses(true);
-      setError(null);
-      try {
-        const data = await listCourses(accessToken);
-        setCourses(data);
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoadingCourses(false);
-      }
-    };
-
-    void loadCourses();
-  }, [accessToken]);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -148,7 +124,6 @@ const ProjectDetailPage = () => {
       const payload: ProjectUpdatePayload = {
         title: values.title,
         description: values.description,
-        courseId: values.courseId || null,
         outcome: {
           description: values.outcomeDescription,
           acceptanceCriteria: values.outcomeAcceptanceCriteria,
@@ -180,7 +155,7 @@ const ProjectDetailPage = () => {
         <div className="gantt-row__label">
           <div className="gantt-row__title">{task.title}</div>
           <div className="gantt-row__meta">
-            {new Date(task.planned_start).toLocaleDateString("ru-RU")} {" "}
+            {new Date(task.planned_start).toLocaleDateString("ru-RU")}{" "}
             {new Date(task.planned_end).toLocaleDateString("ru-RU")}
           </div>
         </div>
@@ -200,10 +175,10 @@ const ProjectDetailPage = () => {
       <div className="table-header">
         <div>
           <h2>Проект</h2>
-          <p className="muted">Задачи, сроки и прогресс команды</p>
+          <p className="muted">План, команда и задачи</p>
         </div>
         <Link className="ghost-btn" to="/">
-          ← К дашборду
+          На дашборд
         </Link>
       </div>
 
@@ -215,54 +190,48 @@ const ProjectDetailPage = () => {
             <div className="table-header">
               <div>
                 <h3>Редактировать проект</h3>
-                <p className="muted">Название, описание, предмет и дедлайн</p>
+                <p className="muted">Название, описание и дедлайн результата</p>
               </div>
               <button className="ghost-btn" onClick={() => setShowEditModal(false)} aria-label="Закрыть">
                 ✕
               </button>
             </div>
-            {loadingCourses ? (
-              <p>Загружаем предметы...</p>
-            ) : (
-              <ProjectForm
-                mode="edit"
-                courses={courses}
-                initialProject={project}
-                onSubmit={handleUpdateProject}
-                onCancel={() => setShowEditModal(false)}
-                loading={savingProject}
-              />
-            )}
+            <ProjectForm
+              mode="edit"
+              initialProject={project}
+              onSubmit={handleUpdateProject}
+              onCancel={() => setShowEditModal(false)}
+              loading={savingProject}
+            />
           </div>
         </div>
       )}
 
       <section className="card">
         {loadingProject ? (
-          <p>Загружаем данные проекта...</p>
+          <p>Загружаем проект...</p>
         ) : !project ? (
           <p>Проект не найден.</p>
         ) : (
           <div className="stack">
-              <div className="table-header">
-                <div>
-                  <h3>{project.title}</h3>
-                  <p className="muted">{project.description}</p>
-                </div>
-                <div className="stack" style={{ alignItems: "flex-end", gap: "0.5rem" }}>
-                  <span className="tag">{project.course_id ? "Привязан к предмету" : "Без предмета"}</span>
-                  <span className="muted">
-                    Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
-                  </span>
-                  <button className="ghost-btn" onClick={() => setShowEditModal(true)} disabled={loadingCourses}>
-                    {loadingCourses ? "Загружаем..." : "Редактировать"}
-                  </button>
-                </div>
+            <div className="table-header">
+              <div>
+                <h3>{project.title}</h3>
+                <p className="muted">{project.description}</p>
               </div>
-              <div className="info-block">
-                <p className="muted">Критерии приёмки</p>
-                <p>{project.outcome.acceptance_criteria}</p>
+              <div className="stack" style={{ alignItems: "flex-end", gap: "0.5rem" }}>
+                <span className="muted">
+                  Дедлайн: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
+                </span>
+                <button className="ghost-btn" onClick={() => setShowEditModal(true)}>
+                  {savingProject ? "Сохраняем..." : "Редактировать"}
+                </button>
               </div>
+            </div>
+            <div className="info-block">
+              <p className="muted">Критерии приемки</p>
+              <p>{project.outcome.acceptance_criteria}</p>
+            </div>
           </div>
         )}
       </section>
@@ -275,14 +244,14 @@ const ProjectDetailPage = () => {
         <div className="table-header">
           <div>
             <h3>Задачи</h3>
-            <p className="muted">План работ и вех</p>
+            <p className="muted">Список и статусы</p>
           </div>
-          {loadingTasks && <span className="tag">Обновляем...</span>}
+          {loadingTasks && <span className="tag">Загружаем...</span>}
         </div>
         {loadingTasks ? (
           <p>Загружаем задачи...</p>
         ) : tasks.length === 0 ? (
-          <p className="muted">В этом проекте ещё нет задач.</p>
+          <p className="muted">Задач пока нет.</p>
         ) : (
           <div className="stack">
             {tasks.map((task) => (
@@ -296,7 +265,7 @@ const ProjectDetailPage = () => {
                 </header>
                 <div className="project-meta">
                   <span>
-                    {new Date(task.planned_start).toLocaleDateString("ru-RU")} {" "}
+                    {new Date(task.planned_start).toLocaleDateString("ru-RU")}{" "}
                     {new Date(task.planned_end).toLocaleDateString("ru-RU")}
                   </span>
                   <span>Правило завершения: {task.completion_rule}</span>
@@ -311,12 +280,12 @@ const ProjectDetailPage = () => {
       <section className="card">
         <div className="table-header">
           <div>
-            <h3>Диаграмма Ганта</h3>
-            <p className="muted">По плановым датам задач</p>
+            <h3>Хронология задач</h3>
+            <p className="muted">Как задачи размещаются во времени</p>
           </div>
         </div>
         {!timeline || tasks.length === 0 ? (
-          <p className="muted">Нет данных для визуализации.</p>
+          <p className="muted">Пока нечего показать: добавьте задачи.</p>
         ) : (
           <div className="gantt-chart">
             {tasks.map((task) => renderGanttBar(task))}

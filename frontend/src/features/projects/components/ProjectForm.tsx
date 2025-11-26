@@ -1,11 +1,9 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { Course } from "../../courses/api/courseApi";
 import type { Project } from "../api/projectApi";
 
 export type ProjectFormValues = {
   title: string;
   description: string;
-  courseId: string;
   outcomeDescription: string;
   outcomeAcceptanceCriteria: string;
   outcomeDeadline: string;
@@ -13,7 +11,6 @@ export type ProjectFormValues = {
 
 type ProjectFormProps = {
   mode: "create" | "edit";
-  courses: Course[];
   initialProject?: Project | null;
   onSubmit: (values: ProjectFormValues) => void;
   onCancel?: () => void;
@@ -23,7 +20,6 @@ type ProjectFormProps = {
 const emptyValues: ProjectFormValues = {
   title: "",
   description: "",
-  courseId: "",
   outcomeDescription: "",
   outcomeAcceptanceCriteria: "",
   outcomeDeadline: "",
@@ -31,7 +27,6 @@ const emptyValues: ProjectFormValues = {
 
 const ProjectForm = ({
   mode,
-  courses,
   initialProject,
   onSubmit,
   onCancel,
@@ -44,7 +39,6 @@ const ProjectForm = ({
       setValues({
         title: initialProject.title,
         description: initialProject.description,
-        courseId: initialProject.course_id ?? "",
         outcomeDescription: initialProject.outcome.description,
         outcomeAcceptanceCriteria: initialProject.outcome.acceptance_criteria,
         outcomeDeadline: initialProject.outcome.deadline.slice(0, 16),
@@ -58,8 +52,8 @@ const ProjectForm = ({
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
     onSubmit(values);
   };
 
@@ -88,23 +82,7 @@ const ProjectForm = ({
         />
       </div>
       <div className="form-field">
-        <label htmlFor="project-course">Предмет</label>
-        <select
-          id="project-course"
-          className="input"
-          value={values.courseId}
-          onChange={(event) => updateField("courseId", event.target.value)}
-        >
-          <option value="">Не выбрано</option>
-          {courses.map((course) => (
-            <option key={course.id} value={course.id}>
-              {course.title}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-field">
-        <label htmlFor="outcome-description">Ожидаемый результат</label>
+        <label htmlFor="outcome-description">Описание результата</label>
         <textarea
           id="outcome-description"
           className="input"
@@ -115,7 +93,7 @@ const ProjectForm = ({
         />
       </div>
       <div className="form-field">
-        <label htmlFor="outcome-criteria">Критерии приёмки</label>
+        <label htmlFor="outcome-criteria">Критерии приемки</label>
         <textarea
           id="outcome-criteria"
           className="input"
