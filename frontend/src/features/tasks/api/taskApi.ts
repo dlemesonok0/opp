@@ -14,6 +14,12 @@ export type Task = {
   actual_end: string | null;
   is_milestone: boolean;
   completion_rule: string;
+  outcome: {
+    id: string;
+    description: string;
+    acceptance_criteria: string;
+    deadline: string;
+  };
 };
 
 export type TaskCreatePayload = {
@@ -22,7 +28,6 @@ export type TaskCreatePayload = {
   duration: number;
   plannedStart: string;
   plannedEnd: string;
-  isMilestone: boolean;
   completionRule: "AnyOne" | "AllAssignees";
   parentId?: string | null;
   outcome: {
@@ -32,6 +37,16 @@ export type TaskCreatePayload = {
   };
 };
 
+export type TaskUpdatePayload = Partial<{
+  title: string;
+  description: string;
+  duration: number;
+  plannedStart: string;
+  plannedEnd: string;
+  completionRule: "AnyOne" | "AllAssignees";
+  parentId: string | null;
+}>;
+
 export const listProjectTasks = (token: string, projectId: string) =>
   apiRequest<Task[]>(`/projects/${projectId}/tasks`, { token });
 
@@ -40,4 +55,17 @@ export const createTask = (token: string, projectId: string, payload: TaskCreate
     method: "POST",
     token,
     body: JSON.stringify(payload),
+  });
+
+export const updateTask = (token: string, taskId: string, payload: TaskUpdatePayload) =>
+  apiRequest<Task>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const deleteTask = (token: string, taskId: string) =>
+  apiRequest<void>(`/tasks/${taskId}`, {
+    method: "DELETE",
+    token,
   });

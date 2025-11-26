@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 from uuid import UUID
 
 class ORM(BaseModel):
@@ -70,8 +70,8 @@ class TaskCreate(BaseModel):
 
     @field_validator("plannedEnd")
     @classmethod
-    def _end_not_before_start(cls, v: datetime, values):
-        start = values.get("plannedStart")
+    def _end_not_before_start(cls, v: datetime, info: ValidationInfo):
+        start = info.data.get("plannedStart")
         if start and v < start:
             raise ValueError("plannedEnd must be >= plannedStart")
         return v
@@ -88,8 +88,8 @@ class TaskUpdate(BaseModel):
 
     @field_validator("plannedEnd")
     @classmethod
-    def _upd_end_not_before_start(cls, v: Optional[datetime], values):
-        start = values.get("plannedStart")
+    def _upd_end_not_before_start(cls, v: Optional[datetime], info: ValidationInfo):
+        start = info.data.get("plannedStart")
         if start and v and v < start:
             raise ValueError("plannedEnd must be >= plannedStart")
         return v

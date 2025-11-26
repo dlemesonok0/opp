@@ -7,7 +7,7 @@ import {
   type Project,
   type ProjectUpdatePayload,
 } from "../api/projectApi";
-import { createTask, listProjectTasks, type Task } from "../../tasks/api/taskApi";
+import { createTask, deleteTask, listProjectTasks, updateTask, type Task } from "../../tasks/api/taskApi";
 import ProjectForm, { type ProjectFormValues } from "../components/ProjectForm";
 import TaskForm, { type TaskFormValues } from "../../tasks/components/TaskForm";
 import {
@@ -72,6 +72,7 @@ const ProjectDetailPage = () => {
   const [membersError, setMembersError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
@@ -144,29 +145,36 @@ const ProjectDetailPage = () => {
     void loadMembers();
   }, [accessToken, project?.team_id]);
 
-  const handleCreateTask = async (values: TaskFormValues) => {
+  const handleSubmitTask = async (values: TaskFormValues) => {
     if (!accessToken || !projectId) return;
+
+    const payload = {
+      title: values.title.trim(),
+      description: values.description.trim() || "No description yet",
+      duration: Math.max(0, values.duration),
+      plannedStart: new Date(values.plannedStart).toISOString(),
+      plannedEnd: new Date(values.plannedEnd).toISOString(),
+      completionRule: values.completionRule,
+      parentId: values.parentId || null,
+      outcome: {
+        description: values.outcomeDescription.trim() || "Outcome not described",
+        acceptanceCriteria: values.outcomeAcceptanceCriteria.trim() || "Acceptance criteria not set",
+        deadline: new Date(values.outcomeDeadline).toISOString(),
+      },
+    };
+
     setSavingTask(true);
     setError(null);
     try {
-      await createTask(accessToken, projectId, {
-        title: values.title,
-        description: values.description,
-        duration: values.duration,
-        plannedStart: new Date(values.plannedStart).toISOString(),
-        plannedEnd: new Date(values.plannedEnd).toISOString(),
-        isMilestone: values.isMilestone,
-        completionRule: values.completionRule,
-        parentId: values.parentId || null,
-        outcome: {
-          description: values.outcomeDescription,
-          acceptanceCriteria: values.outcomeAcceptanceCriteria,
-          deadline: new Date(values.outcomeDeadline).toISOString(),
-        },
-      });
+      if (editingTask) {
+        await updateTask(accessToken, editingTask.id, payload);
+      } else {
+        await createTask(accessToken, projectId, payload);
+      }
       const updated = await listProjectTasks(accessToken, projectId);
       setTasks(updated);
       setShowTaskModal(false);
+      setEditingTask(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -179,9 +187,9 @@ const ProjectDetailPage = () => {
     setSavingProject(true);
     setError(null);
     try {
-      const baseOutcomeDescription = values.outcomeDescription.trim() || "Описание результата не заполнено";
-      const baseOutcomeCriteria = values.outcomeAcceptanceCriteria.trim() || "Критерии не заданы";
-      const baseDescription = values.description.trim() || "Описание не заполнено";
+      const baseOutcomeDescription = values.outcomeDescription.trim() || "Результат пока не описан";
+      const baseOutcomeCriteria = values.outcomeAcceptanceCriteria.trim() || "Критерии пока не заданы";
+      const baseDescription = values.description.trim() || "Описание проекта пока не заполнено";
       const payload: ProjectUpdatePayload = {
         title: values.title,
         description: baseDescription,
@@ -227,6 +235,32 @@ const ProjectDetailPage = () => {
   };
 
   const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
+  const renderGanttBar = (task: Task) => {
+    if (!timeline) return null;
+
+    const total = timeline.max - timeline.min;
+    const start = toTs(task.planned_start);
+    const end = toTs(task.planned_end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || total <= 0) return null;
+
+    const offset = Math.max(0, ((start - timeline.min) / total) * 100);
+    const width = Math.max(3, ((end - start) / total) * 100);
+    const label = `${new Date(task.planned_start).toLocaleDateString("ru-RU")} – ${new Date(
+      task.planned_end,
+    ).toLocaleDateString("ru-RU")}`;
+
+    return (
+      <div key={task.id} className="gantt-row">
+        <div className="gantt-row__label">
+          <span className="gantt-row__title">{task.title}</span>
+          <span className="gantt-row__meta">{label}</span>
+        </div>
+        <div className="gantt-row__track">
+          <div className="gantt-bar" style={{ left: `${offset}%`, width: `${width}%` }} />
+        </div>
+      </div>
+    );
+  };
   const isMember = Boolean(user && members.some((member) => member.id === user.id));
 
   const handleLeaveTeam = async () => {
@@ -240,6 +274,34 @@ const ProjectDetailPage = () => {
       setMembersError((err as Error).message);
       setLeaving(false);
     }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!accessToken || !projectId) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await deleteTask(accessToken, taskId);
+      if (editingTask?.id === taskId) {
+        closeTaskModal();
+      }
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const openTaskModal = (task?: Task | null) => {
+    setEditingTask(task ?? null);
+    setShowTaskModal(true);
+  };
+
+  const closeTaskModal = () => {
+    setShowTaskModal(false);
+    setEditingTask(null);
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
@@ -299,14 +361,20 @@ const ProjectDetailPage = () => {
           <div className="modal" style={{ minWidth: "640px" }}>
             <div className="table-header">
               <div>
-                <h3>Новая задача</h3>
-                <p className="muted">Заполните обязательные поля задачи</p>
+                <h3>{editingTask ? "Редактировать задачу" : "Новая задача"}</h3>
+                <p className="muted">Задайте детали задачи</p>
               </div>
-              <button className="ghost-btn" onClick={() => setShowTaskModal(false)} aria-label="Закрыть">
-                ✕
+              <button className="ghost-btn" onClick={closeTaskModal} aria-label="Закрыть">
+                ×
               </button>
             </div>
-            <TaskForm tasks={tasks} loading={savingTask} onSubmit={handleCreateTask} />
+            <TaskForm
+              tasks={tasks}
+              loading={savingTask}
+              onSubmit={handleSubmitTask}
+              initialTask={editingTask}
+              mode={editingTask ? "edit" : "create"}
+            />
           </div>
         </div>
       )}
@@ -468,7 +536,7 @@ const ProjectDetailPage = () => {
           </div>
           <div className="stack" style={{ alignItems: "flex-end" }}>
             {loadingTasks && <span className="tag">Загружаем...</span>}
-            <button className="primary-btn" type="button" onClick={() => setShowTaskModal(true)}>
+            <button className="primary-btn" type="button" onClick={() => openTaskModal(null)}>
               Добавить задачу
             </button>
           </div>
@@ -481,12 +549,25 @@ const ProjectDetailPage = () => {
           <div className="stack">
             {tasks.map((task) => (
               <article key={task.id} className="project-card">
-                <header>
+                <header className="table-header">
                   <div>
                     <h4>{task.title}</h4>
                     <p className="muted">{task.description}</p>
                   </div>
-                  <span className="tag">{task.status}</span>
+                  <div className="table-actions">
+                    <span className="tag">{task.status}</span>
+                    <button className="ghost-btn" type="button" onClick={() => openTaskModal(task)}>
+                      Редактировать
+                    </button>
+                    <button
+                      className="danger-btn"
+                      type="button"
+                      onClick={() => handleDeleteTask(task.id)}
+                      disabled={savingTask}
+                    >
+                      Удалить
+                    </button>
+                  </div>
                 </header>
                 <div className="project-meta">
                   <span>
@@ -494,7 +575,6 @@ const ProjectDetailPage = () => {
                     {new Date(task.planned_end).toLocaleDateString("ru-RU")}
                   </span>
                   <span>Правило завершения: {task.completion_rule}</span>
-                  {task.is_milestone && <span>Веха</span>}
                 </div>
               </article>
             ))}
