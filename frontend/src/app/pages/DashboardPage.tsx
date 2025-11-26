@@ -214,7 +214,7 @@ const DashboardPage = () => {
                     Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
                   </span>
                 </div>
-                <span className="muted">Открыть проект →</span>
+                <span className="muted">Открыть проект</span>
               </Link>
             ))}
           </div>

@@ -180,7 +180,7 @@ const ProjectDetailPage = () => {
         <div className="gantt-row__label">
           <div className="gantt-row__title">{task.title}</div>
           <div className="gantt-row__meta">
-            {new Date(task.planned_start).toLocaleDateString("ru-RU")} → {" "}
+            {new Date(task.planned_start).toLocaleDateString("ru-RU")} {" "}
             {new Date(task.planned_end).toLocaleDateString("ru-RU")}
           </div>
         </div>
@@ -296,7 +296,7 @@ const ProjectDetailPage = () => {
                 </header>
                 <div className="project-meta">
                   <span>
-                    {new Date(task.planned_start).toLocaleDateString("ru-RU")} → {" "}
+                    {new Date(task.planned_start).toLocaleDateString("ru-RU")} {" "}
                     {new Date(task.planned_end).toLocaleDateString("ru-RU")}
                   </span>
                   <span>Правило завершения: {task.completion_rule}</span>

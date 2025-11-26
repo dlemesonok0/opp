@@ -11,6 +11,13 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 
 @router.post("", response_model=CourseOut, status_code=status.HTTP_201_CREATED)
 def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
+    existing = db.query(Course).filter(Course.title == payload.title).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Курс с таким названием уже существует"
+        )
+
     obj = Course(title=payload.title)
     db.add(obj)
     db.commit()

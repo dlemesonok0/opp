@@ -148,15 +148,6 @@ const TaskForm = ({ tasks, loading, onSubmit }: TaskFormProps) => {
             <option value="AnyOne">Любой исполнитель</option>
           </select>
         </div>
-        <div className="form-field">
-          <label htmlFor="task-milestone">Веха</label>
-          <input
-            id="task-milestone"
-            type="checkbox"
-            checked={values.isMilestone}
-            onChange={(event) => updateField("isMilestone", event.target.checked)}
-          />
-        </div>
       </div>
 
       <div className="form-field">
