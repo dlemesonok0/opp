@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../../auth/AuthContext";
 import ProjectForm, { type ProjectFormValues } from "../components/ProjectForm";
 import {
@@ -44,13 +44,16 @@ const ProjectsPage = () => {
     setSaving(true);
     setError(null);
     try {
+      const baseOutcomeDescription = values.outcomeDescription.trim() || "Описание результата не заполнено";
+      const baseOutcomeCriteria = values.outcomeAcceptanceCriteria.trim() || "Критерии не заданы";
+      const baseDescription = values.description.trim() || "Описание не заполнено";
       if (editingProject) {
         const payload: ProjectUpdatePayload = {
           title: values.title,
-          description: values.description,
+          description: baseDescription,
           outcome: {
-            description: values.outcomeDescription,
-            acceptanceCriteria: values.outcomeAcceptanceCriteria,
+            description: baseOutcomeDescription,
+            acceptanceCriteria: baseOutcomeCriteria,
             deadline: new Date(values.outcomeDeadline).toISOString(),
           },
         };
@@ -59,10 +62,10 @@ const ProjectsPage = () => {
       } else {
         const payload: ProjectCreatePayload = {
           title: values.title,
-          description: values.description,
+          description: baseDescription,
           outcome: {
-            description: values.outcomeDescription,
-            acceptanceCriteria: values.outcomeAcceptanceCriteria,
+            description: baseOutcomeDescription,
+            acceptanceCriteria: baseOutcomeCriteria,
             deadline: new Date(values.outcomeDeadline).toISOString(),
           },
         };

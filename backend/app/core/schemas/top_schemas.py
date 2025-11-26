@@ -131,5 +131,18 @@ class TeamMemberAdd(BaseModel):
 
 class UserInTeamOut(ORM):
     id: UUID
-    full_name: str
+    full_name: str | None = None
     email: str
+
+
+class TeamInviteCreate(BaseModel):
+    email: str
+
+
+class TeamInviteOut(ORM):
+    id: UUID
+    team_id: UUID
+    invited_email: str
+    status: str
+    created_at: datetime
+    team_name: str | None = None

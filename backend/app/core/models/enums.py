@@ -25,3 +25,9 @@ class ReviewStatus(str, enum.Enum):
 class CompletionRule(str, enum.Enum):
     AnyOne = "AnyOne"
     AllAssignees = "AllAssignees"
+
+
+class InviteStatus(str, enum.Enum):
+    Pending = "Pending"
+    Accepted = "Accepted"
+    Declined = "Declined"

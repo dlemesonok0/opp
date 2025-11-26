@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+﻿import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
 import {
   getProject,
@@ -10,6 +10,17 @@ import {
 import { createTask, listProjectTasks, type Task } from "../../tasks/api/taskApi";
 import ProjectForm, { type ProjectFormValues } from "../components/ProjectForm";
 import TaskForm, { type TaskFormValues } from "../../tasks/components/TaskForm";
+import {
+  createTeamInvite,
+  listTeamInvites,
+  revokeInvite,
+  type TeamInvite,
+} from "../../teams/api/inviteApi";
+import {
+  deleteTeamMember,
+  listTeamMembers,
+  type TeamMember,
+} from "../../teams/api/teamApi";
 
 type TimelineBounds = {
   min: number;
@@ -40,7 +51,8 @@ const buildTimeline = (tasks: Task[]): TimelineBounds | null => {
 
 const ProjectDetailPage = () => {
   const { projectId } = useParams();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const navigate = useNavigate();
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -50,6 +62,17 @@ const ProjectDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [savingProject, setSavingProject] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -87,6 +110,40 @@ const ProjectDetailPage = () => {
     void loadTasks();
   }, [accessToken, projectId]);
 
+  useEffect(() => {
+    const loadInvites = async () => {
+      if (!accessToken || !project?.team_id) return;
+      setLoadingInvites(true);
+      setInvitesError(null);
+      try {
+        const items = await listTeamInvites(accessToken, project.team_id);
+        setInvites(items);
+      } catch (err) {
+        setInvitesError((err as Error).message);
+      } finally {
+        setLoadingInvites(false);
+      }
+    };
+    void loadInvites();
+  }, [accessToken, project?.team_id]);
+
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!accessToken || !project?.team_id) return;
+      setLoadingMembers(true);
+      setMembersError(null);
+      try {
+        const data = await listTeamMembers(accessToken, project.team_id);
+        setMembers(data);
+      } catch (err) {
+        setMembersError((err as Error).message);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+    void loadMembers();
+  }, [accessToken, project?.team_id]);
+
   const handleCreateTask = async (values: TaskFormValues) => {
     if (!accessToken || !projectId) return;
     setSavingTask(true);
@@ -109,6 +166,7 @@ const ProjectDetailPage = () => {
       });
       const updated = await listProjectTasks(accessToken, projectId);
       setTasks(updated);
+      setShowTaskModal(false);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -121,12 +179,15 @@ const ProjectDetailPage = () => {
     setSavingProject(true);
     setError(null);
     try {
+      const baseOutcomeDescription = values.outcomeDescription.trim() || "Описание результата не заполнено";
+      const baseOutcomeCriteria = values.outcomeAcceptanceCriteria.trim() || "Критерии не заданы";
+      const baseDescription = values.description.trim() || "Описание не заполнено";
       const payload: ProjectUpdatePayload = {
         title: values.title,
-        description: values.description,
+        description: baseDescription,
         outcome: {
-          description: values.outcomeDescription,
-          acceptanceCriteria: values.outcomeAcceptanceCriteria,
+          description: baseOutcomeDescription,
+          acceptanceCriteria: baseOutcomeCriteria,
           deadline: new Date(values.outcomeDeadline).toISOString(),
         },
       };
@@ -140,34 +201,60 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleCreateInvite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!accessToken || !project?.team_id) return;
+    const email = inviteEmail.trim();
+    if (!email) {
+      setInviteStatus("Введите email");
+      return;
+    }
+    setInviteStatus(null);
+    setInvitesError(null);
+    setLoadingInvites(true);
+    try {
+      await createTeamInvite(accessToken, project.team_id, email);
+      setInviteEmail("");
+      setInviteStatus("Приглашение отправлено");
+      const refreshed = await listTeamInvites(accessToken, project.team_id);
+      setInvites(refreshed);
+      setShowInviteModal(false);
+    } catch (err) {
+      setInvitesError((err as Error).message);
+    } finally {
+      setLoadingInvites(false);
+    }
+  };
+
   const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
+  const isMember = Boolean(user && members.some((member) => member.id === user.id));
 
-  const renderGanttBar = (task: Task) => {
-    if (!timeline) return null;
-    const start = toTs(task.planned_start);
-    const end = toTs(task.planned_end);
-    const range = Math.max(timeline.max - timeline.min, 1);
-    const left = ((start - timeline.min) / range) * 100;
-    const width = Math.max(((end - start) / range) * 100, 2);
+  const handleLeaveTeam = async () => {
+    if (!accessToken || !project?.team_id || !user) return;
+    setLeaving(true);
+    setMembersError(null);
+    try {
+      await deleteTeamMember(accessToken, project.team_id, user.id);
+      navigate("/");
+    } catch (err) {
+      setMembersError((err as Error).message);
+      setLeaving(false);
+    }
+  };
 
-    return (
-      <div className="gantt-row" key={task.id}>
-        <div className="gantt-row__label">
-          <div className="gantt-row__title">{task.title}</div>
-          <div className="gantt-row__meta">
-            {new Date(task.planned_start).toLocaleDateString("ru-RU")}{" "}
-            {new Date(task.planned_end).toLocaleDateString("ru-RU")}
-          </div>
-        </div>
-        <div className="gantt-row__track">
-          <div
-            className="gantt-bar"
-            style={{ left: `${left}%`, width: `${width}%` }}
-            aria-label={`${task.title}: ${task.planned_start} - ${task.planned_end}`}
-          />
-        </div>
-      </div>
-    );
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!accessToken || !project?.team_id) return;
+    setLoadingInvites(true);
+    setInvitesError(null);
+    try {
+      await revokeInvite(accessToken, inviteId);
+      const refreshed = await listTeamInvites(accessToken, project.team_id);
+      setInvites(refreshed);
+    } catch (err) {
+      setInvitesError((err as Error).message);
+    } finally {
+      setLoadingInvites(false);
+    }
   };
 
   return (
@@ -207,6 +294,63 @@ const ProjectDetailPage = () => {
         </div>
       )}
 
+      {showTaskModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal" style={{ minWidth: "640px" }}>
+            <div className="table-header">
+              <div>
+                <h3>Новая задача</h3>
+                <p className="muted">Заполните обязательные поля задачи</p>
+              </div>
+              <button className="ghost-btn" onClick={() => setShowTaskModal(false)} aria-label="Закрыть">
+                ✕
+              </button>
+            </div>
+            <TaskForm tasks={tasks} loading={savingTask} onSubmit={handleCreateTask} />
+          </div>
+        </div>
+      )}
+
+      {showInviteModal && project?.team_id && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal" style={{ minWidth: "480px" }}>
+            <div className="table-header">
+              <div>
+                <h3>Пригласить в команду</h3>
+                <p className="muted">Email адрес для приглашения</p>
+              </div>
+              <button className="ghost-btn" onClick={() => setShowInviteModal(false)} aria-label="Закрыть">
+                ✕
+              </button>
+            </div>
+            <form className="form" onSubmit={handleCreateInvite}>
+              <div className="form-field">
+                <label htmlFor="invite-email">Email</label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  className="input"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+              <div className="form-actions">
+                <button className="ghost-btn" type="button" onClick={() => setShowInviteModal(false)}>
+                  Отмена
+                </button>
+                <button className="primary-btn" type="submit" disabled={loadingInvites}>
+                  {loadingInvites ? "Отправляем..." : "Отправить"}
+                </button>
+              </div>
+              {inviteStatus && <p className="muted">{inviteStatus}</p>}
+              {invitesError && <p className="form-error">{invitesError}</p>}
+            </form>
+          </div>
+        </div>
+      )}
+
       <section className="card">
         {loadingProject ? (
           <p>Загружаем проект...</p>
@@ -236,9 +380,85 @@ const ProjectDetailPage = () => {
         )}
       </section>
 
-      <section className="card">
-        <TaskForm tasks={tasks} loading={savingTask} onSubmit={handleCreateTask} />
-      </section>
+      {project?.team_id && (
+        <section className="card">
+          <div className="table-header">
+            <div>
+              <h3>Команда</h3>
+              <p className="muted">Участники проекта</p>
+            </div>
+            {isMember && (
+              <button className="danger-btn" onClick={handleLeaveTeam} disabled={leaving}>
+                {leaving ? "Выходим..." : "Выйти из команды"}
+              </button>
+            )}
+          </div>
+          {membersError && <p className="form-error">{membersError}</p>}
+          {loadingMembers ? (
+            <p>Загружаем участников...</p>
+          ) : members.length === 0 ? (
+            <p className="muted">Пока нет участников.</p>
+          ) : (
+            <div className="stack">
+              {members.map((member) => (
+                <div key={member.id} className="project-card">
+                  <div className="table-header">
+                    <div>
+                      <strong>{member.full_name || member.email}</strong>
+                      <p className="muted">{member.email}</p>
+                    </div>
+                    {isMember && user?.id === member.id && <span className="tag">Вы</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {project?.team_id && (
+        <section className="card">
+          <div className="table-header">
+            <div>
+              <h3>Приглашения в команду</h3>
+              <p className="muted">Отправьте приглашение по email</p>
+            </div>
+            <div className="stack" style={{ alignItems: "flex-end" }}>
+              {loadingInvites && <span className="tag">Обновляем...</span>}
+              <button className="primary-btn" type="button" onClick={() => setShowInviteModal(true)}>
+                Пригласить
+              </button>
+            </div>
+          </div>
+          {invitesError && <p className="form-error">{invitesError}</p>}
+          {invites.length > 0 && (
+            <div className="stack" style={{ marginTop: "1rem" }}>
+              {invites.map((invite) => (
+                <div key={invite.id} className="project-card">
+                  <div className="table-header">
+                    <div>
+                      <strong>{invite.invited_email}</strong>
+                      <p className="muted">{new Date(invite.created_at).toLocaleString("ru-RU")}</p>
+                    </div>
+                    <div className="stack" style={{ alignItems: "flex-end" }}>
+                      <span className="tag">{invite.status}</span>
+                      {invite.status === "Pending" && (
+                        <button
+                          className="ghost-btn"
+                          type="button"
+                          onClick={() => handleRevokeInvite(invite.id)}
+                        >
+                          Отозвать
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="table-header">
@@ -246,7 +466,12 @@ const ProjectDetailPage = () => {
             <h3>Задачи</h3>
             <p className="muted">Список и статусы</p>
           </div>
-          {loadingTasks && <span className="tag">Загружаем...</span>}
+          <div className="stack" style={{ alignItems: "flex-end" }}>
+            {loadingTasks && <span className="tag">Загружаем...</span>}
+            <button className="primary-btn" type="button" onClick={() => setShowTaskModal(true)}>
+              Добавить задачу
+            </button>
+          </div>
         </div>
         {loadingTasks ? (
           <p>Загружаем задачи...</p>
@@ -265,7 +490,7 @@ const ProjectDetailPage = () => {
                 </header>
                 <div className="project-meta">
                   <span>
-                    {new Date(task.planned_start).toLocaleDateString("ru-RU")}{" "}
+                    {new Date(task.planned_start).toLocaleDateString("ru-RU")} {" "}
                     {new Date(task.planned_end).toLocaleDateString("ru-RU")}
                   </span>
                   <span>Правило завершения: {task.completion_rule}</span>

@@ -1,4 +1,4 @@
-from typing import List
+﻿from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth.api.deps import get_current_user
 from app.auth.schemas.auth import UserOut
-from app.core.models.users import Membership, Team, User
+from app.core.models.users import Membership, Team, TeamInvite, User
 from app.core.models.course import Project
-from app.core.schemas.top_schemas import ProjectMembershipOut, ProjectOut
+from app.core.schemas.top_schemas import ProjectMembershipOut, ProjectOut, TeamInviteOut
 from app.db import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -60,3 +60,31 @@ def list_my_projects(
             )
         )
     return enriched
+
+
+@router.get("/me/invites", response_model=List[TeamInviteOut])
+def list_my_invites(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pending_invites = (
+        db.query(TeamInvite, Team)
+        .join(Team, TeamInvite.team_id == Team.id)
+        .filter(
+            func.lower(TeamInvite.invited_email) == current_user.email.lower(),
+            TeamInvite.status == "Pending",
+        )
+        .order_by(TeamInvite.created_at.desc())
+        .all()
+    )
+    return [
+        TeamInviteOut(
+            id=invite.id,
+            team_id=invite.team_id,
+            invited_email=invite.invited_email,
+            status=invite.status.value,
+            created_at=invite.created_at,
+            team_name=team.name,
+        )
+        for invite, team in pending_invites
+    ]

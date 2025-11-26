@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+﻿import { type FormEvent, useEffect, useState } from "react";
 import type { Project } from "../api/projectApi";
 
 export type ProjectFormValues = {
@@ -33,6 +33,7 @@ const ProjectForm = ({
   loading,
 }: ProjectFormProps) => {
   const [values, setValues] = useState<ProjectFormValues>({ ...emptyValues });
+  const [showExtras, setShowExtras] = useState(false);
 
   useEffect(() => {
     if (initialProject) {
@@ -43,8 +44,10 @@ const ProjectForm = ({
         outcomeAcceptanceCriteria: initialProject.outcome.acceptance_criteria,
         outcomeDeadline: initialProject.outcome.deadline.slice(0, 16),
       });
+      setShowExtras(true);
     } else {
       setValues({ ...emptyValues });
+      setShowExtras(false);
     }
   }, [initialProject]);
 
@@ -71,39 +74,6 @@ const ProjectForm = ({
         />
       </div>
       <div className="form-field">
-        <label htmlFor="project-description">Описание</label>
-        <textarea
-          id="project-description"
-          className="input"
-          rows={3}
-          value={values.description}
-          onChange={(event) => updateField("description", event.target.value)}
-          required
-        />
-      </div>
-      <div className="form-field">
-        <label htmlFor="outcome-description">Описание результата</label>
-        <textarea
-          id="outcome-description"
-          className="input"
-          rows={3}
-          value={values.outcomeDescription}
-          onChange={(event) => updateField("outcomeDescription", event.target.value)}
-          required
-        />
-      </div>
-      <div className="form-field">
-        <label htmlFor="outcome-criteria">Критерии приемки</label>
-        <textarea
-          id="outcome-criteria"
-          className="input"
-          rows={2}
-          value={values.outcomeAcceptanceCriteria}
-          onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
-          required
-        />
-      </div>
-      <div className="form-field">
         <label htmlFor="outcome-deadline">Дедлайн</label>
         <input
           id="outcome-deadline"
@@ -114,6 +84,51 @@ const ProjectForm = ({
           required
         />
       </div>
+      <button
+        className="ghost-btn"
+        type="button"
+        onClick={() => setShowExtras((prev) => !prev)}
+        style={{ alignSelf: "flex-start" }}
+      >
+        {showExtras ? "Скрыть дополнительные поля" : "Дополнительно (необязательно)"}
+      </button>
+      {showExtras && (
+        <>
+          <div className="form-field">
+            <label htmlFor="project-description">Описание</label>
+            <textarea
+              id="project-description"
+              className="input"
+              rows={3}
+              value={values.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              placeholder="Коротко о проекте (необязательно)"
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="outcome-description">Описание результата</label>
+            <textarea
+              id="outcome-description"
+              className="input"
+              rows={3}
+              value={values.outcomeDescription}
+              onChange={(event) => updateField("outcomeDescription", event.target.value)}
+              placeholder="Что получится в итоге (необязательно)"
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="outcome-criteria">Критерии приемки</label>
+            <textarea
+              id="outcome-criteria"
+              className="input"
+              rows={2}
+              value={values.outcomeAcceptanceCriteria}
+              onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
+              placeholder="Как поймём, что задача выполнена (необязательно)"
+            />
+          </div>
+        </>
+      )}
       <div className="form-actions">
         {initialProject && (
           <button className="ghost-btn" type="button" onClick={onCancel}>
