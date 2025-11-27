@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, Boolean, Text, Enum, Integer, CheckConstraint
+from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, Boolean, Text, Enum, Integer, CheckConstraint, text
 
 from app.core.models.comments import Attachment, Comment
 
@@ -33,9 +33,13 @@ class Task(Base):
     parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
     children: Mapped[List["Task"]] = relationship(
         back_populates="parent",
-        cascade="all, delete-orphan"
+        passive_deletes=True,
     )
-    parent: Mapped[Optional["Task"]] = relationship(back_populates="children", remote_side="Task.id")
+    parent: Mapped[Optional["Task"]] = relationship(
+        back_populates="children",
+        remote_side="Task.id",
+        passive_deletes=True,
+    )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -51,7 +55,9 @@ class Task(Base):
     planned_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     actual_start: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     actual_end: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     is_milestone: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_scheduled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     completion_rule: Mapped[CompletionRule] = mapped_column(
         Enum(CompletionRule, name="completion_rule"), default=CompletionRule.AllAssignees, nullable=False
@@ -64,11 +70,21 @@ class Task(Base):
 
     assignees: Mapped[List["TaskAssignee"]] = relationship(back_populates="task", cascade="all, delete-orphan")
     predecessors: Mapped[List["Dependency"]] = relationship(
-        back_populates="successor", foreign_keys="Dependency.successor_task_id", cascade="all, delete-orphan"
+        back_populates="successor",
+        foreign_keys="Dependency.successor_task_id",
+        passive_deletes=True,
+        viewonly=True,
     )
     successors: Mapped[List["Dependency"]] = relationship(
-        back_populates="predecessor", foreign_keys="Dependency.predecessor_task_id", cascade="all, delete-orphan"
+        back_populates="predecessor",
+        foreign_keys="Dependency.predecessor_task_id",
+        passive_deletes=True,
+        viewonly=True,
     )
+
+    @property
+    def dependencies(self) -> List["Dependency"]:
+        return self.predecessors
 
 
 class TaskAssignee(Base):

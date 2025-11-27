@@ -216,11 +216,11 @@ textarea.input {
 
 .project-card {
   border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .clickable-card {
@@ -239,7 +239,7 @@ textarea.input {
 .project-card header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .project-card dl {
@@ -346,6 +346,20 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 1200px;
+}
+
+.gantt-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafbfc;
+  padding: 8px;
+}
+
+.gantt-scroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+  width: 100%;
 }
 
 .gantt-row {
@@ -359,6 +373,35 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.gantt-axis {
+  position: relative;
+  height: 32px;
+  margin-bottom: 8px;
+}
+
+.gantt-axis__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gantt-axis__line {
+  width: 1px;
+  height: 12px;
+  background: #d1d5db;
+}
+
+.gantt-axis__label {
+  white-space: nowrap;
 }
 
 .gantt-row__title {
@@ -385,6 +428,11 @@ textarea.input {
   background: #2563eb;
   border-radius: 10px;
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  color: #0b1324;
+  font-size: 0.85rem;
 }
 
 .topbar {
@@ -437,6 +485,52 @@ textarea.input {
   padding: 6px 10px;
   border-radius: 10px;
   font-size: 0.9rem;
+}
+
+.gantt-bar__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gantt-bar--planned { background: #c7d2fe; }
+.gantt-bar--progress { background: #bfdbfe; }
+.gantt-bar--done { background: #bbf7d0; }
+.gantt-bar--blocked { background: #fecdd3; }
+.gantt-bar--cancelled { background: #e5e7eb; }
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.legend-dot--planned { background: #c7d2fe; }
+.legend-dot--progress { background: #bfdbfe; }
+.legend-dot--done { background: #bbf7d0; }
+.legend-dot--blocked { background: #fecdd3; }
+
+.gantt-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.gantt-row__meta .tag {
+  margin-left: 6px;
+}
+
+.gantt-row__label {
+  min-width: 240px;
+}
+
+.subtask-tag {
+  background: #eef2ff;
+  color: #4338ca;
 }
 
 @media (max-width: 860px) {

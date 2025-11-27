@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Task } from "../api/taskApi";
 
 export type TaskFormValues = {
@@ -6,12 +6,11 @@ export type TaskFormValues = {
   description: string;
   plannedStart: string;
   plannedEnd: string;
+  deadline: string;
   duration: number;
   completionRule: "AnyOne" | "AllAssignees";
   outcomeDescription: string;
   outcomeAcceptanceCriteria: string;
-  outcomeDeadline: string;
-  parentId: string;
 };
 
 type TaskFormProps = {
@@ -19,6 +18,7 @@ type TaskFormProps = {
   loading?: boolean;
   initialTask?: Task | null;
   mode?: "create" | "edit";
+  parentTask?: Task | null;
   onSubmit: (values: TaskFormValues) => void;
 };
 
@@ -27,12 +27,11 @@ const emptyValues: TaskFormValues = {
   description: "",
   plannedStart: "",
   plannedEnd: "",
-  duration: 1,
+  deadline: "",
+  duration: 0,
   completionRule: "AllAssignees",
   outcomeDescription: "",
   outcomeAcceptanceCriteria: "",
-  outcomeDeadline: "",
-  parentId: "",
 };
 
 const toInputValue = (value: string) => {
@@ -42,7 +41,7 @@ const toInputValue = (value: string) => {
   return date.toISOString().slice(0, 16);
 };
 
-const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create" }: TaskFormProps) => {
+const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create", parentTask = null }: TaskFormProps) => {
   const [values, setValues] = useState<TaskFormValues>({ ...emptyValues });
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -54,12 +53,11 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
         description: initialTask.description,
         plannedStart: toInputValue(initialTask.planned_start),
         plannedEnd: toInputValue(initialTask.planned_end),
+        deadline: toInputValue(initialTask.deadline ?? initialTask.planned_end),
         duration: initialTask.duration,
         completionRule: initialTask.completion_rule as TaskFormValues["completionRule"],
         outcomeDescription: initialTask.outcome.description,
         outcomeAcceptanceCriteria: initialTask.outcome.acceptance_criteria,
-        outcomeDeadline: toInputValue(initialTask.outcome.deadline),
-        parentId: initialTask.parent_id ?? "",
       });
     } else {
       setValues({ ...emptyValues });
@@ -68,9 +66,7 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
 
   useEffect(() => {
     setError(null);
-  }, [values.plannedStart, values.plannedEnd]);
-
-  const parents = useMemo(() => tasks.filter((task) => task.id !== initialTask?.id), [tasks, initialTask?.id]);
+  }, [values.plannedStart, values.plannedEnd, values.deadline]);
 
   const updateField = <K extends keyof TaskFormValues>(key: K, value: TaskFormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -85,45 +81,41 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
       return;
     }
 
-    const now = new Date();
-    const fallbackStart = values.plannedStart || toInputValue(now.toISOString());
-    const fallbackEnd =
-      values.plannedEnd ||
-      (() => {
-        const end = new Date(now);
-        end.setDate(end.getDate() + 1);
-        return toInputValue(end.toISOString());
-      })();
-    const fallbackDeadline =
-      values.outcomeDeadline ||
-      (() => {
-        const end = new Date(fallbackEnd);
-        end.setDate(end.getDate() + 1);
-        return toInputValue(end.toISOString());
-      })();
+    const plannedStart = values.plannedStart || "";
+    const plannedEnd = values.plannedEnd || "";
+    const deadline = values.deadline || "";
 
-    const startTs = new Date(fallbackStart).getTime();
-    const endTs = new Date(fallbackEnd).getTime();
-    if (Number.isFinite(startTs) && Number.isFinite(endTs) && endTs < startTs) {
-      setError("Дата окончания раньше даты начала");
+    const duration = Number.isFinite(values.duration) ? values.duration : 0;
+
+    if (!deadline && !plannedStart && duration <= 0) {
+      setError("Укажите дедлайн, плановое начало или трудозатраты");
       return;
+    }
+
+    if (plannedStart && plannedEnd) {
+      const startTs = new Date(plannedStart).getTime();
+      const endTs = new Date(plannedEnd).getTime();
+      if (Number.isFinite(startTs) && Number.isFinite(endTs) && endTs < startTs) {
+        setError("Дата окончания раньше даты начала");
+        return;
+      }
     }
 
     const sanitized: TaskFormValues = {
       ...values,
       title,
       description: values.description.trim(),
-      plannedStart: fallbackStart,
-      plannedEnd: fallbackEnd,
-      duration: Number.isFinite(values.duration) ? values.duration : 0,
+      plannedStart,
+      plannedEnd,
+      deadline: deadline || plannedEnd,
+      duration,
       outcomeDescription: values.outcomeDescription.trim(),
       outcomeAcceptanceCriteria: values.outcomeAcceptanceCriteria.trim(),
-      outcomeDeadline: fallbackDeadline,
     };
 
     onSubmit(sanitized);
     if (mode === "create") {
-      setValues({ ...emptyValues, plannedStart: values.plannedStart, plannedEnd: values.plannedEnd });
+      setValues({ ...emptyValues });
     }
   };
 
@@ -136,6 +128,15 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
         </div>
         {loading && <span className="tag">Сохраняем...</span>}
       </div>
+
+      {parentTask && (
+        <div className="info-block" style={{ background: "#eef2ff", borderColor: "#c7d2fe" }}>
+          <strong>Подзадача для: {parentTask.title}</strong>
+          <p className="muted" style={{ margin: 0 }}>
+            Эта подзадача должна завершиться до задачи-родителя.
+          </p>
+        </div>
+      )}
 
       <div className="form-field">
         <label htmlFor="task-title">Название</label>
@@ -174,37 +175,42 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
         <>
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="planned-start">Плановое начало</label>
+              <label htmlFor="deadline">Дедлайн задачи</label>
               <input
-                id="planned-start"
+                id="deadline"
                 type="datetime-local"
                 className="input"
-                value={values.plannedStart}
-                onChange={(event) => updateField("plannedStart", event.target.value)}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="planned-end">Плановое завершение</label>
-              <input
-                id="planned-end"
-                type="datetime-local"
-                className="input"
-                value={values.plannedEnd}
-                onChange={(event) => updateField("plannedEnd", event.target.value)}
+                value={values.deadline}
+                onChange={(event) => updateField("deadline", event.target.value)}
               />
             </div>
           </div>
 
+          <div className="form-field">
+            <label htmlFor="planned-start">Плановое начало (опционально)</label>
+            <input
+              id="planned-start"
+              type="datetime-local"
+              className="input"
+              value={values.plannedStart}
+              onChange={(event) => updateField("plannedStart", event.target.value)}
+              placeholder="Указать если нужно стартовать раньше"
+            />
+          </div>
+
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="task-duration">Трудозатраты (часы)</label>
+              <label htmlFor="task-duration">Трудозатраты (часы, необязательно)</label>
               <input
                 id="task-duration"
                 type="number"
                 min={0}
                 className="input"
-                value={values.duration}
-                onChange={(event) => updateField("duration", Number(event.target.value))}
+                value={Number.isFinite(values.duration) ? values.duration : ""}
+                onChange={(event) =>
+                  updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
+                }
+                placeholder="Можно оставить пустым"
               />
             </div>
             <div className="form-field">
@@ -219,23 +225,6 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
                 <option value="AnyOne">Любой исполнитель</option>
               </select>
             </div>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="parent-task">Родительская задача</label>
-            <select
-              id="parent-task"
-              className="input"
-              value={values.parentId}
-              onChange={(event) => updateField("parentId", event.target.value)}
-            >
-              <option value="">Без родителя</option>
-              {parents.map((task) => (
-                <option key={task.id} value={task.id}>
-                  {task.title}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="grid" style={{ gap: "1rem" }}>
@@ -259,17 +248,6 @@ const TaskForm = ({ tasks, loading, onSubmit, initialTask = null, mode = "create
                 onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
               />
             </div>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="outcome-deadline">Дедлайн результата</label>
-            <input
-              id="outcome-deadline"
-              type="datetime-local"
-              className="input"
-              value={values.outcomeDeadline}
-              onChange={(event) => updateField("outcomeDeadline", event.target.value)}
-            />
           </div>
         </>
       )}

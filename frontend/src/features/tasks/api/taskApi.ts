@@ -10,10 +10,13 @@ export type Task = {
   duration: number;
   planned_start: string;
   planned_end: string;
+  deadline: string | null;
   actual_start: string | null;
   actual_end: string | null;
   is_milestone: boolean;
+  auto_scheduled: boolean;
   completion_rule: string;
+  dependencies: TaskDependency[];
   outcome: {
     id: string;
     description: string;
@@ -22,14 +25,29 @@ export type Task = {
   };
 };
 
+export type TaskDependency = {
+  id: string;
+  predecessor_task_id: string;
+  successor_task_id: string;
+  type: "FS" | "FF" | "SS" | "SF";
+  lag: number;
+};
+
 export type TaskCreatePayload = {
   title: string;
   description: string;
   duration: number;
   plannedStart: string;
   plannedEnd: string;
+  deadline?: string | null;
+  autoScheduled?: boolean;
   completionRule: "AnyOne" | "AllAssignees";
   parentId?: string | null;
+  dependencies?: Array<{
+    predecessorId: string;
+    type: TaskDependency["type"];
+    lag?: number;
+  }>;
   outcome: {
     description: string;
     acceptanceCriteria: string;
@@ -43,8 +61,11 @@ export type TaskUpdatePayload = Partial<{
   duration: number;
   plannedStart: string;
   plannedEnd: string;
+  deadline: string | null;
+  autoScheduled: boolean;
   completionRule: "AnyOne" | "AllAssignees";
   parentId: string | null;
+  dependencies: TaskCreatePayload["dependencies"];
 }>;
 
 export const listProjectTasks = (token: string, projectId: string) =>

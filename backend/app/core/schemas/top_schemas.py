@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 from uuid import UUID
+from app.core.models.enums import DepType
 
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -34,6 +35,20 @@ class OutcomeTaskOut(ORM):
     acceptance_criteria: str
     deadline: datetime
 
+class TaskDependencyIn(BaseModel):
+    predecessorId: UUID
+    type: DepType
+    lag: int = 0
+
+
+class TaskDependencyOut(ORM):
+    id: UUID
+    predecessor_task_id: UUID
+    successor_task_id: UUID
+    type: DepType
+    lag: int
+
+
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
@@ -60,12 +75,15 @@ class ProjectMembershipOut(ProjectOut):
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
-    duration: int = Field(ge=0)
+    duration: int = Field(ge=0, default=0)
     plannedStart: datetime
     plannedEnd: datetime
+    deadline: Optional[datetime] = None
     isMilestone: bool = False
+    autoScheduled: bool = False
     completionRule: str = Field(pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
+    dependencies: Optional[List["TaskDependencyIn"]] = None
     outcome: OutcomeTaskIn
 
     @field_validator("plannedEnd")
@@ -82,9 +100,12 @@ class TaskUpdate(BaseModel):
     duration: Optional[int] = Field(default=None, ge=0)
     plannedStart: Optional[datetime] = None
     plannedEnd: Optional[datetime] = None
+    deadline: Optional[datetime] = None
     isMilestone: Optional[bool] = None
+    autoScheduled: Optional[bool] = None
     completionRule: Optional[str] = Field(default=None, pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
+    dependencies: Optional[List["TaskDependencyIn"]] = None
 
     @field_validator("plannedEnd")
     @classmethod
@@ -104,11 +125,14 @@ class TaskOut(ORM):
     duration: int
     planned_start: datetime
     planned_end: datetime
+    deadline: Optional[datetime]
     actual_start: Optional[datetime]
     actual_end: Optional[datetime]
     is_milestone: bool
+    auto_scheduled: bool
     completion_rule: str
     outcome: OutcomeTaskOut
+    dependencies: List[TaskDependencyOut] = []
 
 
 class TeamCreate(BaseModel):
