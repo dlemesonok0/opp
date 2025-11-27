@@ -1,21 +1,11 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 from uuid import UUID
 
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
-class CourseCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-
-class CourseUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
-
-class CourseOut(ORM):
-    id: UUID
-    title: str
 
 class OutcomeProjectIn(BaseModel):
     description: str
@@ -47,14 +37,12 @@ class OutcomeTaskOut(ORM):
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
-    courseId: Optional[UUID] = None
     teamId: Optional[UUID] = None
     outcome: OutcomeProjectIn
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
-    courseId: Optional[UUID] = None
     teamId: Optional[UUID] = None
     outcome: Optional[OutcomeProjectUpdate] = None
 
@@ -62,14 +50,12 @@ class ProjectOut(ORM):
     id: UUID
     title: str
     description: str
-    course_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
     outcome: OutcomeProjectOut
 
 
 class ProjectMembershipOut(ProjectOut):
     team_name: str | None = None
-    course_title: str | None = None
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -84,8 +70,8 @@ class TaskCreate(BaseModel):
 
     @field_validator("plannedEnd")
     @classmethod
-    def _end_not_before_start(cls, v: datetime, values):
-        start = values.get("plannedStart")
+    def _end_not_before_start(cls, v: datetime, info: ValidationInfo):
+        start = info.data.get("plannedStart")
         if start and v < start:
             raise ValueError("plannedEnd must be >= plannedStart")
         return v
@@ -102,8 +88,8 @@ class TaskUpdate(BaseModel):
 
     @field_validator("plannedEnd")
     @classmethod
-    def _upd_end_not_before_start(cls, v: Optional[datetime], values):
-        start = values.get("plannedStart")
+    def _upd_end_not_before_start(cls, v: Optional[datetime], info: ValidationInfo):
+        start = info.data.get("plannedStart")
         if start and v and v < start:
             raise ValueError("plannedEnd must be >= plannedStart")
         return v
@@ -145,5 +131,18 @@ class TeamMemberAdd(BaseModel):
 
 class UserInTeamOut(ORM):
     id: UUID
-    full_name: str
+    full_name: str | None = None
     email: str
+
+
+class TeamInviteCreate(BaseModel):
+    email: str
+
+
+class TeamInviteOut(ORM):
+    id: UUID
+    team_id: UUID
+    invited_email: str
+    status: str
+    created_at: datetime
+    team_name: str | None = None

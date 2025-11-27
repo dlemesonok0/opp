@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { listCourses } from "../../features/courses/api/courseApi";
-import type { Course } from "../../features/courses/api/courseApi";
 import {
   createProject,
   listMyProjects,
   type ProjectMembership,
 } from "../../features/projects/api/projectApi";
 import { addTeamMember, createTeam } from "../../features/teams/api/teamApi";
+import {
+  acceptInvite,
+  declineInvite,
+  listMyInvites,
+  type TeamInvite,
+} from "../../features/teams/api/inviteApi";
 
 const DashboardPage = () => {
   const { accessToken, user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
   const [myProjects, setMyProjects] = useState<ProjectMembership[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
-  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [projectsError, setProjectsError] = useState<string | null>(null);
-  const [formCourseId, setFormCourseId] = useState<string>("");
+
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectOutcomeDescription, setProjectOutcomeDescription] = useState("");
@@ -29,20 +29,12 @@ const DashboardPage = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(true);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
 
-  const fetchCourses = useCallback(async () => {
-    if (!accessToken) return;
-    setLoadingCourses(true);
-    setCoursesError(null);
-    try {
-      const data = await listCourses(accessToken);
-      setCourses(data);
-    } catch (error) {
-      setCoursesError((error as Error).message);
-    } finally {
-      setLoadingCourses(false);
-    }
-  }, [accessToken]);
+  const defaultOutcomeDeadline = () =>
+    new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 16);
 
   const fetchMyProjects = useCallback(async () => {
     if (!accessToken) return;
@@ -58,50 +50,38 @@ const DashboardPage = () => {
     }
   }, [accessToken]);
 
-  useEffect(() => {
-    void fetchCourses();
-    void fetchMyProjects();
-  }, [fetchCourses, fetchMyProjects]);
-
-  useEffect(() => {
-    if (!formCourseId && courses.length > 0) {
-      setFormCourseId(courses[0].id);
+  const fetchMyInvites = useCallback(async () => {
+    if (!accessToken) return;
+    setLoadingInvites(true);
+    setInvitesError(null);
+    try {
+      const data = await listMyInvites(accessToken);
+      setInvites(data);
+    } catch (error) {
+      setInvitesError((error as Error).message);
+    } finally {
+      setLoadingInvites(false);
     }
-  }, [courses, formCourseId]);
+  }, [accessToken]);
 
-  const selectedCourse = useMemo(
-    () => courses.find((course) => course.id === formCourseId) ?? null,
-    [courses, formCourseId]
-  );
+  useEffect(() => {
+    setProjectOutcomeDeadline(defaultOutcomeDeadline());
+    void fetchMyProjects();
+    void fetchMyInvites();
+  }, [fetchMyProjects, fetchMyInvites]);
 
-  const defaultOutcomeDeadline = () =>
-    new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 16);
-
-  const handleCreateTeam = async (event: FormEvent) => {
+  const handleCreateProject = async (event: FormEvent) => {
     event.preventDefault();
     if (!accessToken || !user) return;
 
     const title = projectTitle.trim();
     if (!title) {
-      setFormError("Введите название проекта");
+      setFormError("Нужно название проекта");
       return;
     }
-    if (!selectedCourse) {
-      setFormError("Нужен хотя бы один предмет");
-      return;
-    }
-    if (!projectDescription.trim()) {
-      setFormError("Добавьте описание проекта");
-      return;
-    }
-    if (!projectOutcomeDescription.trim() || !projectOutcomeCriteria.trim()) {
-      setFormError("Заполните описание результата и критерии");
-      return;
-    }
-
     const deadlineDate = new Date(projectOutcomeDeadline);
     if (!Number.isFinite(deadlineDate.getTime())) {
-      setFormError("Выберите корректный дедлайн");
+      setFormError("Неверный формат дедлайна");
       return;
     }
 
@@ -115,12 +95,11 @@ const DashboardPage = () => {
 
       await createProject(accessToken, {
         title,
-        description: projectDescription,
-        courseId: selectedCourse.id,
+        description: projectDescription.trim() || "Описание не заполнено",
         teamId: team.id,
         outcome: {
-          description: projectOutcomeDescription,
-          acceptanceCriteria: projectOutcomeCriteria,
+          description: projectOutcomeDescription.trim() || "Описание результата не заполнено",
+          acceptanceCriteria: projectOutcomeCriteria.trim() || "Критерии не заданы",
           deadline: deadlineDate.toISOString(),
         },
       });
@@ -130,13 +109,33 @@ const DashboardPage = () => {
       setProjectOutcomeDescription("");
       setProjectOutcomeCriteria("");
       setProjectOutcomeDeadline(defaultOutcomeDeadline());
-      setFormStatus("Команда создана, вы добавлены в участники и проект готов.");
+      setFormStatus("Проект создан, можно переходить к задачам");
       setShowCreateModal(false);
       await fetchMyProjects();
     } catch (error) {
       setFormError((error as Error).message);
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleAcceptInvite = async (inviteId: string) => {
+    if (!accessToken) return;
+    try {
+      await acceptInvite(accessToken, inviteId);
+      await Promise.all([fetchMyInvites(), fetchMyProjects()]);
+    } catch (error) {
+      setInvitesError((error as Error).message);
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId: string) => {
+    if (!accessToken) return;
+    try {
+      await declineInvite(accessToken, inviteId);
+      await fetchMyInvites();
+    } catch (error) {
+      setInvitesError((error as Error).message);
     }
   };
 
@@ -163,16 +162,16 @@ const DashboardPage = () => {
       <section className="card">
         <div className="dashboard-hero">
           <div>
-            <h2>Ваши проекты</h2>
+            <h2>Рабочий стол</h2>
             <p className="muted">
-              Здесь собраны команды, где вы состоите. Создайте новый проект и команду за пару кликов.
+              Управляйте проектами и командами из одного места. Создавайте проект и сразу переходите
+              к задачам.
             </p>
           </div>
           <div className="dashboard-hero__stats">
             <span className="stat-pill">{totalProjects} проектов</span>
-            <span className="stat-pill">{courses.length} предметов</span>
-            <button className="primary-btn" onClick={openCreateModal} disabled={loadingCourses}>
-              Создать проект
+            <button className="primary-btn" onClick={openCreateModal}>
+              Новый проект
             </button>
           </div>
         </div>
@@ -182,16 +181,16 @@ const DashboardPage = () => {
         <div className="table-header">
           <div>
             <h3>Мои проекты</h3>
-            <p className="muted">Команды, в которых вы состоите</p>
+            <p className="muted">Описание, команда и сроки</p>
           </div>
-          {loadingProjects && <span className="tag">Обновляем...</span>}
+          {loadingProjects && <span className="tag">Загружаем...</span>}
         </div>
         {projectsError && <p className="form-error">{projectsError}</p>}
         {loadingProjects ? (
-          <p>Загружаем список...</p>
+          <p>Загружаем проекты...</p>
         ) : myProjects.length === 0 ? (
           <div className="dashboard-empty">
-            <p>Пока нет ни одного проекта. Создайте первый.</p>
+            <p>У вас пока нет проектов. Создайте первый.</p>
           </div>
         ) : (
           <div className="stack">
@@ -206,16 +205,60 @@ const DashboardPage = () => {
                     <h4>{project.title}</h4>
                     <p className="muted">{project.description}</p>
                   </div>
-                  <span className="tag">{project.course_title ?? "Без предмета"}</span>
+                  <span className="tag">{project.team_name ?? "Без команды"}</span>
                 </header>
                 <div className="project-meta">
-                  <span>Команда: {project.team_name ?? "не назначена"}</span>
+                  <span>Команда: {project.team_name ?? "пока не назначена"}</span>
                   <span>
-                    Сдача: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
+                    Дедлайн: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
                   </span>
                 </div>
-                <span className="muted">Открыть проект →</span>
+                <span className="muted">Открыть проект</span>
               </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="table-header">
+          <div>
+            <h3>Приглашения</h3>
+            <p className="muted">Присоединиться к командам</p>
+          </div>
+          {loadingInvites && <span className="tag">Загружаем...</span>}
+        </div>
+        {invitesError && <p className="form-error">{invitesError}</p>}
+        {loadingInvites ? (
+          <p>Загружаем приглашения...</p>
+        ) : invites.length === 0 ? (
+          <p className="muted">Пока нет приглашений.</p>
+        ) : (
+          <div className="stack">
+            {invites.map((invite) => (
+              <div key={invite.id} className="project-card">
+                <header className="table-header">
+                  <div>
+                    <h4>{invite.team_name ?? "Команда"}</h4>
+                    <p className="muted">{invite.invited_email}</p>
+                  </div>
+                  <span className="tag">{invite.status}</span>
+                </header>
+                {invite.status === "Pending" ? (
+                  <div className="table-actions">
+                    <button className="primary-btn" onClick={() => handleAcceptInvite(invite.id)}>
+                      Принять
+                    </button>
+                    <button className="ghost-btn" onClick={() => handleDeclineInvite(invite.id)}>
+                      Отклонить
+                    </button>
+                  </div>
+                ) : (
+                  <p className="muted">
+                    Приглашение {invite.status === "Accepted" ? "принято" : "отклонено"}.
+                  </p>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -226,51 +269,42 @@ const DashboardPage = () => {
           <div className="modal">
             <div className="table-header">
               <div>
-                <h3>Создать проект</h3>
-                <p className="muted">Выберите предмет и придумайте название</p>
+                <h3>Новый проект</h3>
+                <p className="muted">
+                  Обязательные поля: название и дедлайн. Остальные параметры — дополнительные.
+                </p>
               </div>
               <button className="ghost-btn" onClick={closeCreateModal} aria-label="Закрыть">
                 ✕
               </button>
             </div>
 
-            {coursesError && <p className="form-error">{coursesError}</p>}
-            {loadingCourses ? (
-              <p>Загружаем список предметов...</p>
-            ) : courses.length === 0 ? (
-              <div className="dashboard-empty">
-                <p>Нет предметов. Добавьте хотя бы один на странице предметов.</p>
-                <Link className="primary-btn" to="/courses">
-                  Перейти к предметам
-                </Link>
+            <form className="form" onSubmit={handleCreateProject}>
+              <div className="form-field">
+                <label htmlFor="dashboard-project">Название*</label>
+                <input
+                  id="dashboard-project"
+                  className="input"
+                  value={projectTitle}
+                  onChange={(event) => setProjectTitle(event.target.value)}
+                  placeholder="Пример: Финальный проект"
+                  required
+                />
               </div>
-            ) : (
-              <form className="form" onSubmit={handleCreateTeam}>
-                <div className="form-field">
-                  <label htmlFor="dashboard-course">Предмет</label>
-                  <select
-                    id="dashboard-course"
-                    className="input"
-                    value={formCourseId}
-                    onChange={(event) => setFormCourseId(event.target.value)}
-                  >
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label htmlFor="dashboard-project">Название проекта</label>
-                  <input
-                    id="dashboard-project"
-                    className="input"
-                    value={projectTitle}
-                    onChange={(event) => setProjectTitle(event.target.value)}
-                    placeholder="Например, Платформа наставника"
-                  />
-                </div>
+              <div className="form-field">
+                <label htmlFor="dashboard-outcome-deadline">Дедлайн*</label>
+                <input
+                  id="dashboard-outcome-deadline"
+                  type="datetime-local"
+                  className="input"
+                  value={projectOutcomeDeadline}
+                  onChange={(event) => setProjectOutcomeDeadline(event.target.value)}
+                  required
+                />
+              </div>
+
+              <details className="details-block">
+                <summary>Дополнительно (необязательно)</summary>
                 <div className="form-field">
                   <label htmlFor="dashboard-project-description">Описание</label>
                   <textarea
@@ -279,53 +313,44 @@ const DashboardPage = () => {
                     rows={3}
                     value={projectDescription}
                     onChange={(event) => setProjectDescription(event.target.value)}
-                    placeholder="Что делает команда, какую проблему решает"
+                    placeholder="Что нужно сделать и зачем"
                   />
                 </div>
                 <div className="form-field">
-                  <label htmlFor="dashboard-outcome-description">Ожидаемый результат</label>
+                  <label htmlFor="dashboard-outcome-description">Описание результата</label>
                   <textarea
                     id="dashboard-outcome-description"
                     className="input"
                     rows={2}
                     value={projectOutcomeDescription}
                     onChange={(event) => setProjectOutcomeDescription(event.target.value)}
-                    placeholder="Например, демо с отчётом о проделанной работе"
+                    placeholder="Что должно получиться в итоге"
                   />
                 </div>
                 <div className="form-field">
-                  <label htmlFor="dashboard-outcome-criteria">Критерии приёмки</label>
+                  <label htmlFor="dashboard-outcome-criteria">Критерии приемки</label>
                   <textarea
                     id="dashboard-outcome-criteria"
                     className="input"
                     rows={2}
                     value={projectOutcomeCriteria}
                     onChange={(event) => setProjectOutcomeCriteria(event.target.value)}
-                    placeholder="Что должно быть готово, чтобы считать проект завершённым"
+                    placeholder="Как поймем, что работа завершена"
                   />
                 </div>
-                <div className="form-field">
-                  <label htmlFor="dashboard-outcome-deadline">Дедлайн</label>
-                  <input
-                    id="dashboard-outcome-deadline"
-                    type="datetime-local"
-                    className="input"
-                    value={projectOutcomeDeadline}
-                    onChange={(event) => setProjectOutcomeDeadline(event.target.value)}
-                  />
-                </div>
-                <div className="form-actions">
-                  <button className="ghost-btn" type="button" onClick={closeCreateModal}>
-                    Отменить
-                  </button>
-                  <button className="primary-btn" type="submit" disabled={formLoading}>
-                    {formLoading ? "Создаём..." : "Создать"}
-                  </button>
-                </div>
-                {formStatus && <p className="muted">{formStatus}</p>}
-                {formError && <p className="form-error">{formError}</p>}
-              </form>
-            )}
+              </details>
+
+              <div className="form-actions">
+                <button className="ghost-btn" type="button" onClick={closeCreateModal}>
+                  Отмена
+                </button>
+                <button className="primary-btn" type="submit" disabled={formLoading}>
+                  {formLoading ? "Создаем..." : "Создать"}
+                </button>
+              </div>
+              {formStatus && <p className="muted">{formStatus}</p>}
+              {formError && <p className="form-error">{formError}</p>}
+            </form>
           </div>
         </div>
       )}

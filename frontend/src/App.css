@@ -316,7 +316,7 @@ textarea.input {
   margin-bottom: 6px;
 }
 
-.sidebar .ghost-btn {
+.topbar .ghost-btn {
   border-color: rgba(255, 255, 255, 0.3);
   color: #f9fafb;
 }
@@ -385,6 +385,58 @@ textarea.input {
   background: #2563eb;
   border-radius: 10px;
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: linear-gradient(120deg, #0f172a, #1d4ed8);
+  color: #f8fafc;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}
+
+.topbar__brand {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #f8fafc;
+  text-decoration: none;
+}
+
+.topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.95rem;
+}
+
+.topbar__text span {
+  color: rgba(248, 250, 252, 0.8);
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar__user {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 860px) {

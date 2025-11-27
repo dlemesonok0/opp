@@ -1,35 +1,31 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 
 const MainLayout = () => {
   const { user, logout } = useAuth();
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar__brand">ТОП НАЗВАНИЕ</div>
-        <nav className="sidebar__nav">
-          <NavLink to="/" end>
-            Дашборд
-          </NavLink>
-          <NavLink to="/courses">Предметы</NavLink>
-          <NavLink to="/projects">Проекты</NavLink>
-        </nav>
-        <div className="sidebar__footer">
-          <p className="sidebar__user">{user?.email}</p>
+    <div className="content" style={{ minHeight: "100vh" }}>
+      <header className="topbar">
+        <div className="topbar__left">
+          <Link to="/" className="topbar__brand">
+            Opp
+          </Link>
+          <div className="topbar__text">
+            <strong>Панель управления</strong>
+            <span>Проекты, задачи и команда в одном месте</span>
+          </div>
+        </div>
+        <div className="topbar__right">
+          {user?.email && <span className="topbar__user">{user.email}</span>}
           <button className="ghost-btn" onClick={logout}>
             Выйти
           </button>
         </div>
-      </aside>
-      <main className="content">
-        <header className="page-header">
-          <h1>Портфель проектов</h1>
-          <p>Управляйте учебными предметами и командами из одного места</p>
-        </header>
-        <div className="page-content">
-          <Outlet />
-        </div>
+      </header>
+
+      <main className="page-content" style={{ paddingTop: "12px" }}>
+        <Outlet />
       </main>
     </div>
   );

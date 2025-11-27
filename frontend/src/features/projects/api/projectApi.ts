@@ -11,20 +11,17 @@ export type Project = {
   id: string;
   title: string;
   description: string;
-  course_id: string | null;
   team_id: string | null;
   outcome: ProjectOutcome;
 };
 
 export type ProjectMembership = Project & {
-  course_title?: string | null;
   team_name?: string | null;
 };
 
 export type ProjectCreatePayload = {
   title: string;
   description: string;
-  courseId?: string | null;
   teamId?: string | null;
   outcome: {
     description: string;
@@ -36,7 +33,6 @@ export type ProjectCreatePayload = {
 export type ProjectUpdatePayload = {
   title?: string;
   description?: string;
-  courseId?: string | null;
   teamId?: string | null;
   outcome?: {
     description?: string;

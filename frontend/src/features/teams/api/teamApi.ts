@@ -32,3 +32,9 @@ export const addTeamMember = (
     token,
     body: JSON.stringify(payload),
   });
+
+export const deleteTeamMember = (token: string, teamId: string, userId: string) =>
+  apiRequest<void>(`/teams/${teamId}/members/${userId}`, {
+    method: "DELETE",
+    token,
+  });

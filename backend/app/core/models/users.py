@@ -2,11 +2,12 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, func, Column, Boolean
+from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, func, Column, Boolean, Enum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.models.base import Base
+from app.core.models.enums import InviteStatus
 
 
 class User(Base):
@@ -36,6 +37,7 @@ class Team(Base):
 
     memberships: Mapped[List["Membership"]] = relationship(back_populates="team", cascade="all, delete-orphan")
     projects: Mapped[List["Project"]] = relationship(back_populates="team")
+    invites: Mapped[List["TeamInvite"]] = relationship(back_populates="team", cascade="all, delete-orphan")
 
 
 class Membership(Base):
@@ -51,6 +53,20 @@ class Membership(Base):
 
     user: Mapped["User"] = relationship(back_populates="memberships")
     team: Mapped["Team"] = relationship(back_populates="memberships")
+
+
+class TeamInvite(Base):
+    __tablename__ = "team_invites"
+
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    invited_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    invited_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[InviteStatus] = mapped_column(Enum(InviteStatus), default=InviteStatus.Pending, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    team: Mapped["Team"] = relationship(back_populates="invites")
+    invited_user: Mapped["User"] = relationship()
 
 
 
