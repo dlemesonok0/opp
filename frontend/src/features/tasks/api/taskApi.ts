@@ -16,6 +16,7 @@ export type Task = {
   is_milestone: boolean;
   auto_scheduled: boolean;
   completion_rule: string;
+  assignee_ids: string[];
   dependencies: TaskDependency[];
   outcome: {
     id: string;
@@ -33,6 +34,13 @@ export type TaskDependency = {
   lag: number;
 };
 
+export type Assignee = {
+  id: string;
+  type: "team" | "user";
+  name: string;
+  email?: string | null;
+};
+
 export type TaskCreatePayload = {
   title: string;
   description: string;
@@ -43,6 +51,7 @@ export type TaskCreatePayload = {
   autoScheduled?: boolean;
   completionRule: "AnyOne" | "AllAssignees";
   parentId?: string | null;
+  assigneeIds?: string[];
   dependencies?: Array<{
     predecessorId: string;
     type: TaskDependency["type"];
@@ -65,6 +74,7 @@ export type TaskUpdatePayload = Partial<{
   autoScheduled: boolean;
   completionRule: "AnyOne" | "AllAssignees";
   parentId: string | null;
+  assigneeIds: string[];
   dependencies: TaskCreatePayload["dependencies"];
 }>;
 

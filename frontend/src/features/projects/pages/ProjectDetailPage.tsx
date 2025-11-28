@@ -89,6 +89,17 @@ const ProjectDetailPage = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [parentTask, setParentTask] = useState<Task | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const teamAssigneeOption = project?.team_id
+    ? [{ id: project.team_id, type: "team" as const, name: "Вся команда" }]
+    : [];
+  const assigneeOptions = teamAssigneeOption.concat(
+    members.map((m) => ({
+      id: m.id,
+      type: "user" as const,
+      name: m.full_name || m.email,
+      email: m.email,
+    })),
+  );
 
   useEffect(() => {
     const loadProject = async () => {
@@ -201,6 +212,7 @@ const ProjectDetailPage = () => {
       autoScheduled: Boolean(values.deadline && !values.plannedStart),
       completionRule: values.completionRule,
       parentId: parentTask ? parentTask.id : null,
+      assigneeIds: values.assigneeIds,
       outcome: {
         description: values.outcomeDescription.trim() || "Outcome not described",
         acceptanceCriteria: values.outcomeAcceptanceCriteria.trim() || "Acceptance criteria not set",
@@ -529,6 +541,8 @@ const ProjectDetailPage = () => {
               onSubmit={handleSubmitTask}
               initialTask={editingTask}
               mode={editingTask ? "edit" : "create"}
+              assignees={assigneeOptions}
+              members={members}
             />
           </div>
         </div>

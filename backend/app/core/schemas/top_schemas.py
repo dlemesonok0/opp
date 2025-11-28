@@ -84,6 +84,7 @@ class TaskCreate(BaseModel):
     completionRule: str = Field(pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
     dependencies: Optional[List["TaskDependencyIn"]] = None
+    assigneeIds: Optional[List[UUID]] = None
     outcome: OutcomeTaskIn
 
     @field_validator("plannedEnd")
@@ -106,6 +107,7 @@ class TaskUpdate(BaseModel):
     completionRule: Optional[str] = Field(default=None, pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
     dependencies: Optional[List["TaskDependencyIn"]] = None
+    assigneeIds: Optional[List[UUID]] = None
 
     @field_validator("plannedEnd")
     @classmethod
@@ -133,6 +135,7 @@ class TaskOut(ORM):
     completion_rule: str
     outcome: OutcomeTaskOut
     dependencies: List[TaskDependencyOut] = []
+    assignee_ids: List[UUID] = []
 
 
 class TeamCreate(BaseModel):

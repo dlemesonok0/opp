@@ -5,7 +5,7 @@ from uuid import UUID
 from datetime import datetime, timedelta
 
 from app.core.models.course import Project
-from app.core.models.task import Task, OutcomeTask, Dependency
+from app.core.models.task import Task, OutcomeTask, Dependency, TaskAssignee
 from app.core.models.enums import DepType
 from app.core.schemas.top_schemas import TaskOut, TaskCreate, TaskUpdate
 from app.db import get_db
@@ -126,6 +126,9 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
                     lag=dep.lag,
                 )
             )
+    if payload.assigneeIds:
+        for user_id in payload.assigneeIds:
+            db.add(TaskAssignee(task_id=task.id, user_id=user_id))
     _recalculate_project_schedule(db, project_id)
     db.commit()
     db.refresh(task)
@@ -202,6 +205,10 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
                     lag=dep.lag,
                 )
             )
+    if payload.assigneeIds is not None:
+        db.query(TaskAssignee).filter(TaskAssignee.task_id == t.id).delete()
+        for user_id in payload.assigneeIds:
+            db.add(TaskAssignee(task_id=t.id, user_id=user_id))
 
     if t.parent_id:
         parent = db.get(Task, t.parent_id)

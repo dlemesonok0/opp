@@ -4,13 +4,12 @@ from typing import List, Optional
 
 from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, Boolean, Text, Enum, Integer, CheckConstraint, text
 
-from app.core.models.comments import Attachment, Comment
-
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.models.base import Base
 from app.core.models.enums import TaskStatus, CompletionRule, DepType
+from app.core.models.comments import Attachment, Comment
 
 
 class OutcomeTask(Base):
@@ -85,6 +84,10 @@ class Task(Base):
     @property
     def dependencies(self) -> List["Dependency"]:
         return self.predecessors
+
+    @property
+    def assignee_ids(self) -> List[uuid.UUID]:
+        return [a.user_id for a in self.assignees]
 
 
 class TaskAssignee(Base):
