@@ -15,6 +15,7 @@ import {
   listProjectTasks,
   updateTask,
   completeTask,
+  recalcProjectTasks,
   type Task,
 } from "../../tasks/api/taskApi";
 import { type ProjectFormValues } from "../components/ProjectForm";
@@ -128,6 +129,7 @@ const ProjectDetailPage = () => {
   const [reviewerMessage, setReviewerMessage] = useState<string | null>(null);
   const [reviewerError, setReviewerError] = useState<string | null>(null);
   const [savingReviewer, setSavingReviewer] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const teamAssigneeOption = project?.team_id
     ? [{ id: project.team_id, type: "team" as const, name: "Вся команда" }]
@@ -176,6 +178,20 @@ const ProjectDetailPage = () => {
 
     void loadTasks();
   }, [accessToken, projectId]);
+
+  const handleRecalculateTasks = async () => {
+    if (!projectId || !accessToken) return;
+    setRecalculating(true);
+    setError(null);
+    try {
+      const items = await recalcProjectTasks(accessToken, projectId);
+      setTasks(items);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   useEffect(() => {
     const loadInvites = async () => {
@@ -745,6 +761,7 @@ const ProjectDetailPage = () => {
         tasks={tasks}
         loadingTasks={loadingTasks}
         savingTask={savingTask}
+        recalculating={recalculating}
         childrenMap={childrenMap}
         hasMembers={hasMembers}
         currentUserId={user?.id ?? null}
@@ -752,6 +769,7 @@ const ProjectDetailPage = () => {
         onEditTask={(task) => openTaskModal(task)}
         onCreateSubtask={(parent) => openTaskModal(null, parent)}
         onDeleteTask={handleDeleteTaskSafe}
+        onRecalculate={handleRecalculateTasks}
         onRequestReview={(task) => {
           setTaskForReview(task);
           setShowTaskReviewerModal(true);

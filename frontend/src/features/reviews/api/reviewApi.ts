@@ -35,8 +35,27 @@ export type ProjectReview = {
   project: ProjectSummary;
 };
 
+export type ReviewUpdatePayload = {
+  status: ReviewStatus;
+  comment?: string | null;
+};
+
 export const listTaskReviews = (token: string, status?: ReviewStatus) =>
   apiRequest<TaskReview[]>(`/reviews/tasks${status ? `?status_filter=${status}` : ""}`, { token });
 
 export const listProjectReviews = (token: string, status?: ReviewStatus) =>
   apiRequest<ProjectReview[]>(`/reviews/projects${status ? `?status_filter=${status}` : ""}`, { token });
+
+export const updateTaskReview = (token: string, reviewId: string, payload: ReviewUpdatePayload) =>
+  apiRequest<TaskReview>(`/reviews/tasks/${reviewId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const updateProjectReview = (token: string, reviewId: string, payload: ReviewUpdatePayload) =>
+  apiRequest<ProjectReview>(`/reviews/projects/${reviewId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });

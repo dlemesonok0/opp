@@ -277,6 +277,18 @@ def list_tasks(project_id: UUID, limit: int = 50, offset: int = 0, db: Session =
     )
     return q.all()
 
+@router.post("/recalculate", response_model=List[TaskOut])
+def recalc_tasks(project_id: UUID, db: Session = Depends(get_db)):
+    _ensure_same_project_or_404(db, project_id)
+    _recalculate_project_schedule(db, project_id)
+    db.commit()
+    return (
+        db.query(Task)
+        .filter(Task.project_id == project_id)
+        .order_by(Task.planned_start)
+        .all()
+    )
+
 plain_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @plain_router.get("/{task_id}", response_model=TaskOut)

@@ -105,6 +105,12 @@ export type ReviewCreatePayload = {
 export const listProjectTasks = (token: string, projectId: string) =>
   apiRequest<Task[]>(`/projects/${projectId}/tasks`, { token });
 
+export const recalcProjectTasks = (token: string, projectId: string) =>
+  apiRequest<Task[]>(`/projects/${projectId}/tasks/recalculate`, {
+    method: "POST",
+    token,
+  });
+
 export const createTask = (token: string, projectId: string, payload: TaskCreatePayload) =>
   apiRequest<Task>(`/projects/${projectId}/tasks`, {
     method: "POST",

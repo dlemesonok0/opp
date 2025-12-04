@@ -13,6 +13,8 @@ type TasksSectionProps = {
   onDeleteTask: (taskId: string) => void;
   onRequestReview: (task: Task) => void;
   onCompleteTask: (task: Task) => void;
+  onRecalculate: () => void;
+  recalculating: boolean;
 };
 
 const TasksSection = ({
@@ -28,6 +30,8 @@ const TasksSection = ({
   onDeleteTask,
   onRequestReview,
   onCompleteTask,
+  onRecalculate,
+  recalculating,
 }: TasksSectionProps) => {
   const renderTaskItem = (task: Task, depth = 0): JSX.Element => {
     const assignees = task.assignees ?? [];
@@ -107,6 +111,14 @@ const TasksSection = ({
         </div>
         <div className="stack" style={{ alignItems: "flex-end" }}>
           {loadingTasks && <span className="tag">Загрузка...</span>}
+          <button
+            className="ghost-btn"
+            type="button"
+            onClick={onRecalculate}
+            disabled={recalculating || loadingTasks || savingTask}
+          >
+            {recalculating ? "Пересчитываем..." : "Пересчитать план"}
+          </button>
           <button className="primary-btn" type="button" onClick={onCreateTask}>
             Создать задачу
           </button>

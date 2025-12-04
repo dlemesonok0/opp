@@ -1,14 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
-import { listProjectReviews, listTaskReviews, type ProjectReview, type TaskReview, type ReviewStatus } from "../api/reviewApi";
+import {
+  listProjectReviews,
+  listTaskReviews,
+  updateProjectReview,
+  updateTaskReview,
+  type ProjectReview,
+  type TaskReview,
+  type ReviewStatus,
+} from "../api/reviewApi";
 
 const ReviewsPage = () => {
   const { accessToken } = useAuth();
+  const navigate = useNavigate();
   const [taskReviews, setTaskReviews] = useState<TaskReview[]>([]);
   const [projectReviews, setProjectReviews] = useState<ProjectReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReviewStatus | "all">("all");
+  const [savingMap, setSavingMap] = useState<Record<string, boolean>>({});
+  const [commentMap, setCommentMap] = useState<Record<string, string>>({});
+  const [statusMap, setStatusMap] = useState<Record<string, ReviewStatus>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -23,6 +36,18 @@ const ReviewsPage = () => {
         ]);
         setTaskReviews(tasks);
         setProjectReviews(projects);
+        const nextComments: Record<string, string> = {};
+        const nextStatuses: Record<string, ReviewStatus> = {};
+        tasks.forEach((rev) => {
+          nextComments[rev.id] = rev.comment ?? "";
+          nextStatuses[rev.id] = rev.status;
+        });
+        projects.forEach((rev) => {
+          nextComments[rev.id] = rev.comment ?? "";
+          nextStatuses[rev.id] = rev.status;
+        });
+        setCommentMap(nextComments);
+        setStatusMap(nextStatuses);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -32,9 +57,59 @@ const ReviewsPage = () => {
     void load();
   }, [accessToken, filter]);
 
+  const statusOptions: Array<{ value: ReviewStatus; label: string }> = useMemo(
+    () => [
+      { value: "Pending", label: "В ожидании" },
+      { value: "Accepted", label: "Принято" },
+      { value: "Rejected", label: "Отклонено" },
+    ],
+    [],
+  );
+
   const renderStatus = (status: string) => {
     const cls = status === "Accepted" ? "tag tag--success" : status === "Rejected" ? "tag tag--danger" : "tag";
-    return <span className={cls}>{status}</span>;
+    const item = statusOptions.find((o) => o.value === status);
+    return <span className={cls}>{item?.label ?? status}</span>;
+  };
+
+  const handleSaveTaskReview = async (rev: TaskReview) => {
+    if (!accessToken) return;
+    setSavingMap((prev) => ({ ...prev, [rev.id]: true }));
+    setError(null);
+    try {
+      const payload = {
+        status: statusMap[rev.id] ?? rev.status,
+        comment: (commentMap[rev.id] ?? "").trim() || null,
+      };
+      const updated = await updateTaskReview(accessToken, rev.id, payload);
+      setTaskReviews((prev) => prev.map((r) => (r.id === rev.id ? updated : r)));
+      setCommentMap((prev) => ({ ...prev, [rev.id]: updated.comment ?? "" }));
+      setStatusMap((prev) => ({ ...prev, [rev.id]: updated.status }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [rev.id]: false }));
+    }
+  };
+
+  const handleSaveProjectReview = async (rev: ProjectReview) => {
+    if (!accessToken) return;
+    setSavingMap((prev) => ({ ...prev, [rev.id]: true }));
+    setError(null);
+    try {
+      const payload = {
+        status: statusMap[rev.id] ?? rev.status,
+        comment: (commentMap[rev.id] ?? "").trim() || null,
+      };
+      const updated = await updateProjectReview(accessToken, rev.id, payload);
+      setProjectReviews((prev) => prev.map((r) => (r.id === rev.id ? updated : r)));
+      setCommentMap((prev) => ({ ...prev, [rev.id]: updated.comment ?? "" }));
+      setStatusMap((prev) => ({ ...prev, [rev.id]: updated.status }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [rev.id]: false }));
+    }
   };
 
   return (
@@ -83,6 +158,53 @@ const ReviewsPage = () => {
                       {renderStatus(rev.status)}
                     </div>
                     <p className="muted">Назначено: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
+                    <div className="stack" style={{ gap: "8px", marginTop: "8px" }}>
+                      <div className="stack" style={{ gap: "4px" }}>
+                        <label className="muted" htmlFor={`status-${rev.id}`}>
+                          Статус ревью
+                        </label>
+                        <select
+                          id={`status-${rev.id}`}
+                          className="input"
+                          value={statusMap[rev.id] ?? rev.status}
+                          onChange={(e) => setStatusMap((prev) => ({ ...prev, [rev.id]: e.target.value as ReviewStatus }))}
+                          disabled={savingMap[rev.id]}
+                        >
+                          {statusOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="stack" style={{ gap: "4px" }}>
+                        <label className="muted" htmlFor={`comment-${rev.id}`}>
+                          Комментарий
+                        </label>
+                        <textarea
+                          id={`comment-${rev.id}`}
+                          className="input"
+                          rows={3}
+                          placeholder="Напишите, что улучшить или подтвердите выполнение"
+                          value={commentMap[rev.id] ?? ""}
+                          onChange={(e) => setCommentMap((prev) => ({ ...prev, [rev.id]: e.target.value }))}
+                          disabled={savingMap[rev.id]}
+                        />
+                      </div>
+                      <div className="table-actions">
+                        <button className="ghost-btn" type="button" onClick={() => navigate(`/projects/${rev.task.project_id}`)}>
+                          Открыть проект
+                        </button>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={() => void handleSaveTaskReview(rev)}
+                          disabled={savingMap[rev.id]}
+                        >
+                          {savingMap[rev.id] ? "Сохраняем..." : "Сохранить ревью"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -110,6 +232,53 @@ const ReviewsPage = () => {
                       {renderStatus(rev.status)}
                     </div>
                     <p className="muted">Назначено: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
+                    <div className="stack" style={{ gap: "8px", marginTop: "8px" }}>
+                      <div className="stack" style={{ gap: "4px" }}>
+                        <label className="muted" htmlFor={`status-${rev.id}`}>
+                          Статус ревью
+                        </label>
+                        <select
+                          id={`status-${rev.id}`}
+                          className="input"
+                          value={statusMap[rev.id] ?? rev.status}
+                          onChange={(e) => setStatusMap((prev) => ({ ...prev, [rev.id]: e.target.value as ReviewStatus }))}
+                          disabled={savingMap[rev.id]}
+                        >
+                          {statusOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="stack" style={{ gap: "4px" }}>
+                        <label className="muted" htmlFor={`comment-${rev.id}`}>
+                          Комментарий
+                        </label>
+                        <textarea
+                          id={`comment-${rev.id}`}
+                          className="input"
+                          rows={3}
+                          placeholder="Напишите вывод по проекту"
+                          value={commentMap[rev.id] ?? ""}
+                          onChange={(e) => setCommentMap((prev) => ({ ...prev, [rev.id]: e.target.value }))}
+                          disabled={savingMap[rev.id]}
+                        />
+                      </div>
+                      <div className="table-actions">
+                        <button className="ghost-btn" type="button" onClick={() => navigate(`/projects/${rev.project.id}`)}>
+                          Открыть проект
+                        </button>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={() => void handleSaveProjectReview(rev)}
+                          disabled={savingMap[rev.id]}
+                        >
+                          {savingMap[rev.id] ? "Сохраняем..." : "Сохранить ревью"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

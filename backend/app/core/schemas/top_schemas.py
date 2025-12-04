@@ -189,6 +189,10 @@ class ReviewCreate(BaseModel):
     reviewerEmail: Optional[str] = None
     comment: Optional[str] = None
 
+class ReviewUpdate(BaseModel):
+    status: ReviewStatus
+    comment: Optional[str] = None
+
 
 class ReviewTaskOut(ORM):
     id: UUID
