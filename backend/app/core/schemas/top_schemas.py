@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 from uuid import UUID
-from app.core.models.enums import DepType
+from app.core.models.enums import DepType, ReviewStatus
 
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -173,3 +173,47 @@ class TeamInviteOut(ORM):
     status: str
     created_at: datetime
     team_name: str | None = None
+
+
+class ReviewCreate(BaseModel):
+    reviewerId: Optional[UUID] = None
+    reviewerEmail: Optional[str] = None
+    comment: Optional[str] = None
+
+
+class ReviewTaskOut(ORM):
+    id: UUID
+    task_id: UUID
+    reviewer_id: UUID
+    status: ReviewStatus
+    comment: Optional[str] = None
+    created_at: datetime
+
+
+class ReviewProjectOut(ORM):
+    id: UUID
+    project_id: UUID
+    reviewer_id: UUID
+    status: ReviewStatus
+    comment: Optional[str] = None
+    created_at: datetime
+
+
+class TaskSummary(ORM):
+    id: UUID
+    title: str
+    project_id: UUID
+
+
+class ProjectSummary(ORM):
+    id: UUID
+    title: str
+    team_id: Optional[UUID] = None
+
+
+class ReviewTaskWithTask(ReviewTaskOut):
+    task: TaskSummary
+
+
+class ReviewProjectWithProject(ReviewProjectOut):
+    project: ProjectSummary

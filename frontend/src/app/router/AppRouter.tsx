@@ -5,6 +5,7 @@ import RegisterPage from "../../features/auth/pages/RegisterPage";
 import MainLayout from "../layout/MainLayout";
 import DashboardPage from "../pages/DashboardPage";
 import ProjectDetailPage from "../../features/projects/pages/ProjectDetailPage";
+import ReviewsPage from "../../features/reviews/pages/ReviewsPage";
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -15,6 +16,7 @@ const AppRouter = () => (
             <Route element={<MainLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+              <Route path="reviews" element={<ReviewsPage />} />
             </Route>
           </Route>
         </Routes>

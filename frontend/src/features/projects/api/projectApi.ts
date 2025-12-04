@@ -15,6 +15,15 @@ export type Project = {
   outcome: ProjectOutcome;
 };
 
+export type ProjectReview = {
+  id: string;
+  project_id: string;
+  reviewer_id: string;
+  status: "Pending" | "Accepted" | "Rejected";
+  comment?: string | null;
+  created_at: string;
+};
+
 export type ProjectMembership = Project & {
   team_name?: string | null;
 };
@@ -73,3 +82,14 @@ export const deleteProject = (token: string, projectId: string) =>
 
 export const getProject = (token: string, projectId: string) =>
   apiRequest<Project>(`/projects/${projectId}`, { token });
+
+export const addProjectReviewer = (
+  token: string,
+  projectId: string,
+  payload: { reviewerId?: string; reviewerEmail?: string; comment?: string | null },
+) =>
+  apiRequest<ProjectReview>(`/projects/${projectId}/reviews`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });

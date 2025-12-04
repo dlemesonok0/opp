@@ -12,8 +12,13 @@ export type TaskFormValues = {
   completionRule: "AnyOne" | "AllAssignees";
   outcomeDescription: string;
   outcomeAcceptanceCriteria: string;
-  assigneeMode: "team" | "custom";
+  assignTeam: boolean;
   assigneeIds: string[];
+  dependencies: Array<{
+    predecessorId: string;
+    type: "FS" | "FF" | "SS" | "SF";
+    lag: number;
+  }>;
 };
 
 type TaskFormProps = {
@@ -37,8 +42,9 @@ const emptyValues: TaskFormValues = {
   completionRule: "AllAssignees",
   outcomeDescription: "",
   outcomeAcceptanceCriteria: "",
-  assigneeMode: "team",
+  assignTeam: false,
   assigneeIds: [],
+  dependencies: [],
 };
 
 const toInputValue = (value: string) => {
@@ -62,8 +68,17 @@ const TaskForm = ({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const availablePredecessors = tasks.filter((t) => !initialTask || t.id !== initialTask.id);
+
   useEffect(() => {
+    const hasTeamOption = assignees.some((a) => a.type === "team");
+    const memberIds = members.map((member) => member.id);
+
     if (initialTask) {
+      const initialAssignees = initialTask.assignee_ids ?? [];
+      const hasAllMembersAssigned =
+        memberIds.length > 0 && memberIds.every((id) => initialAssignees.includes(id));
+
       setValues({
         title: initialTask.title,
         description: initialTask.description,
@@ -74,13 +89,22 @@ const TaskForm = ({
         completionRule: initialTask.completion_rule as TaskFormValues["completionRule"],
         outcomeDescription: initialTask.outcome.description,
         outcomeAcceptanceCriteria: initialTask.outcome.acceptance_criteria,
-        assigneeMode: "custom",
-        assigneeIds: initialTask.assignee_ids ?? [],
+        assignTeam: hasTeamOption && hasAllMembersAssigned,
+        assigneeIds: initialAssignees,
+        dependencies:
+          initialTask.dependencies?.map((dep) => ({
+            predecessorId: dep.predecessor_task_id,
+            type: dep.type,
+            lag: dep.lag,
+          })) ?? [],
       });
     } else {
-      setValues({ ...emptyValues });
+      setValues({
+        ...emptyValues,
+        assignTeam: hasTeamOption && memberIds.length > 0,
+      });
     }
-  }, [initialTask]);
+  }, [initialTask, assignees, members]);
 
   useEffect(() => {
     setError(null);
@@ -88,6 +112,34 @@ const TaskForm = ({
 
   const updateField = <K extends keyof TaskFormValues>(key: K, value: TaskFormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateDependency = <K extends keyof TaskFormValues["dependencies"][number]>(
+    index: number,
+    key: K,
+    value: TaskFormValues["dependencies"][number][K],
+  ) => {
+    setValues((prev) => {
+      const next = [...prev.dependencies];
+      next[index] = { ...next[index], [key]: value };
+      return { ...prev, dependencies: next };
+    });
+  };
+
+  const addDependency = () => {
+    const first = availablePredecessors[0]?.id;
+    if (!first) return;
+    setValues((prev) => ({
+      ...prev,
+      dependencies: [...prev.dependencies, { predecessorId: first, type: "FS", lag: 0 }],
+    }));
+  };
+
+  const removeDependency = (index: number) => {
+    setValues((prev) => ({
+      ...prev,
+      dependencies: prev.dependencies.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -120,10 +172,16 @@ const TaskForm = ({
     }
 
     const teamAssignee = assignees.find((a) => a.type === "team");
-    const computedAssigneeIds =
-      values.assigneeMode === "team" && teamAssignee
-        ? [teamAssignee.id]
-        : values.assigneeIds.filter(Boolean);
+    const computedAssigneeIds: string[] = [];
+    const pushAssignee = (id: string) => {
+      if (id && !computedAssigneeIds.includes(id)) {
+        computedAssigneeIds.push(id);
+      }
+    };
+    if (values.assignTeam && teamAssignee) {
+      pushAssignee(teamAssignee.id);
+    }
+    values.assigneeIds.filter(Boolean).forEach((id) => pushAssignee(id));
 
     const sanitized: TaskFormValues = {
       ...values,
@@ -136,11 +194,23 @@ const TaskForm = ({
       outcomeDescription: values.outcomeDescription.trim(),
       outcomeAcceptanceCriteria: values.outcomeAcceptanceCriteria.trim(),
       assigneeIds: computedAssigneeIds,
+      dependencies: values.dependencies
+        .filter((dep) => dep.predecessorId)
+        .map((dep) => ({
+          predecessorId: dep.predecessorId,
+          type: dep.type,
+          lag: Number.isFinite(dep.lag) ? dep.lag : 0,
+        })),
     };
 
     onSubmit(sanitized);
     if (mode === "create") {
-      setValues({ ...emptyValues });
+      const hasTeamOption = assignees.some((a) => a.type === "team");
+      setValues({
+        ...emptyValues,
+        assignTeam: hasTeamOption && members.length > 0,
+        dependencies: [],
+      });
     }
   };
 
@@ -196,11 +266,12 @@ const TaskForm = ({
         {showAdvanced ? "Скрыть доп. поля" : "Дополнительные поля"}
       </button>
 
+
       {showAdvanced && (
         <>
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="deadline">Дедлайн задачи</label>
+              <label htmlFor="deadline">Deadline</label>
               <input
                 id="deadline"
                 type="datetime-local"
@@ -212,20 +283,20 @@ const TaskForm = ({
           </div>
 
           <div className="form-field">
-            <label htmlFor="planned-start">Плановое начало (опционально)</label>
+            <label htmlFor="planned-start">Planned start (optional)</label>
             <input
               id="planned-start"
               type="datetime-local"
               className="input"
               value={values.plannedStart}
               onChange={(event) => updateField("plannedStart", event.target.value)}
-              placeholder="Указать если нужно стартовать раньше"
+              placeholder="Set planned start if needed"
             />
-        </div>
+          </div>
 
-        <div className="grid" style={{ gap: "1rem" }}>
-          <div className="form-field">
-            <label htmlFor="task-duration">Трудозатраты (часы, необязательно)</label>
+          <div className="grid" style={{ gap: "1rem" }}>
+            <div className="form-field">
+              <label htmlFor="task-duration">Duration (hours)</label>
               <input
                 id="task-duration"
                 type="number"
@@ -235,79 +306,67 @@ const TaskForm = ({
                 onChange={(event) =>
                   updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
                 }
-                placeholder="Можно оставить пустым"
+                placeholder="Enter duration"
               />
             </div>
-          <div className="form-field">
-            <label htmlFor="task-rule">Правило завершения</label>
-            <select
-              id="task-rule"
-              className="input"
-              value={values.completionRule}
-              onChange={(event) => updateField("completionRule", event.target.value as TaskFormValues["completionRule"])}
-            >
-              <option value="AllAssignees">Все исполнители</option>
-              <option value="AnyOne">Любой исполнитель</option>
-            </select>
+            <div className="form-field">
+              <label htmlFor="task-rule">Completion rule</label>
+              <select
+                id="task-rule"
+                className="input"
+                value={values.completionRule}
+                onChange={(event) => updateField("completionRule", event.target.value as TaskFormValues["completionRule"])}
+              >
+                <option value="AllAssignees">All assignees</option>
+                <option value="AnyOne">Any one</option>
+              </select>
+            </div>
           </div>
-        </div>
+
           <div className="form-field">
-            <label>Ответственные</label>
+            <label>Assignees</label>
             <div className="stack" style={{ gap: "8px" }}>
-              <label className="muted">
-                <input
-                  type="radio"
-                  name="assignees-mode"
-                  value="team"
-                  checked={values.assigneeMode === "team"}
-                  onChange={() => updateField("assigneeMode", "team")}
-                  style={{ marginRight: "8px" }}
-                />
-                Вся команда
-              </label>
-              <label className="muted">
-                <input
-                  type="radio"
-                  name="assignees-mode"
-                  value="custom"
-                  checked={values.assigneeMode === "custom"}
-                  onChange={() => updateField("assigneeMode", "custom")}
-                  style={{ marginRight: "8px" }}
-                />
-                Выбрать участников
-              </label>
-              {values.assigneeMode === "custom" && (
-                <div className="stack" style={{ gap: "4px" }}>
-                  {assignees
-                    .filter((a) => a.type === "user")
-                .map((assignee) => {
-                  const checked = values.assigneeIds.includes(assignee.id);
-                  return (
-                    <label key={assignee.id} className="muted">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const newIds = checked
-                            ? values.assigneeIds.filter((id) => id !== assignee.id)
-                            : [...values.assigneeIds, assignee.id];
-                          updateField("assigneeIds", newIds);
-                        }}
-                        style={{ marginRight: "8px" }}
-                      />
-                      {assignee.name}
-                      {assignee.email ? ` (${assignee.email})` : ""}
-                    </label>
-                  );
-                })}
+              {assignees.some((a) => a.type === "team") && (
+                <label className="muted">
+                  <input
+                    type="checkbox"
+                    checked={values.assignTeam}
+                    onChange={(event) => updateField("assignTeam", event.target.checked)}
+                    style={{ marginRight: "8px" }}
+                  />
+                  Whole team
+                </label>
+              )}
+              <div className="stack" style={{ gap: "4px" }}>
+                {assignees
+                  .filter((a) => a.type === "user")
+                  .map((assignee) => {
+                    const checked = values.assigneeIds.includes(assignee.id);
+                    return (
+                      <label key={assignee.id} className="muted">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const newIds = checked
+                              ? values.assigneeIds.filter((id) => id !== assignee.id)
+                              : [...values.assigneeIds, assignee.id];
+                            updateField("assigneeIds", newIds);
+                          }}
+                          style={{ marginRight: "8px" }}
+                        />
+                        {assignee.name}
+                        {assignee.email ? ` (${assignee.email})` : ""}
+                      </label>
+                    );
+                  })}
               </div>
-            )}
-          </div>
+            </div>
           </div>
 
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="outcome-description">Описание результата</label>
+              <label htmlFor="outcome-description">Outcome description</label>
               <textarea
                 id="outcome-description"
                 className="input"
@@ -317,7 +376,7 @@ const TaskForm = ({
               />
             </div>
             <div className="form-field">
-              <label htmlFor="outcome-criteria">Критерии приемки</label>
+              <label htmlFor="outcome-criteria">Acceptance criteria</label>
               <textarea
                 id="outcome-criteria"
                 className="input"
@@ -325,6 +384,75 @@ const TaskForm = ({
                 value={values.outcomeAcceptanceCriteria}
                 onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>Dependencies</label>
+            <div className="stack" style={{ gap: "8px" }}>
+              {values.dependencies.map((dep, index) => (
+                <div
+                  key={`${dep.predecessorId}-${index}`}
+                  className="dependency-row"
+                  style={{ display: "grid", gap: "8px", gridTemplateColumns: "1fr 120px 120px auto", alignItems: "center" }}
+                >
+                  <select
+                    className="input"
+                    value={dep.predecessorId}
+                    onChange={(event) => updateDependency(index, "predecessorId", event.target.value)}
+                  >
+                    {availablePredecessors.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="input"
+                    value={dep.type}
+                    onChange={(event) =>
+                      updateDependency(
+                        index,
+                        "type",
+                        event.target.value as TaskFormValues["dependencies"][number]["type"],
+                      )
+                    }
+                  >
+                    <option value="FS">FS</option>
+                    <option value="FF">FF</option>
+                    <option value="SS">SS</option>
+                    <option value="SF">SF</option>
+                  </select>
+                  <input
+                    type="number"
+                    className="input"
+                    value={dep.lag}
+                    onChange={(event) => updateDependency(index, "lag", Number(event.target.value))}
+                    placeholder="lag"
+                  />
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => removeDependency(index)}
+                    aria-label="Remove dependency"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={addDependency}
+                disabled={availablePredecessors.length === 0}
+              >
+                Add dependency
+              </button>
+              {availablePredecessors.length === 0 && (
+                <p className="muted" style={{ margin: 0 }}>
+                  No tasks available to link as a dependency.
+                </p>
+              )}
             </div>
           </div>
         </>

@@ -13,6 +13,12 @@ import {
   listMyInvites,
   type TeamInvite,
 } from "../../features/teams/api/inviteApi";
+import {
+  listTaskReviews,
+  listProjectReviews,
+  type TaskReview,
+  type ProjectReview,
+} from "../../features/reviews/api/reviewApi";
 
 const DashboardPage = () => {
   const { accessToken, user } = useAuth();
@@ -32,6 +38,10 @@ const DashboardPage = () => {
   const [invites, setInvites] = useState<TeamInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(true);
   const [invitesError, setInvitesError] = useState<string | null>(null);
+  const [taskReviews, setTaskReviews] = useState<TaskReview[]>([]);
+  const [projectReviews, setProjectReviews] = useState<ProjectReview[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const defaultOutcomeDeadline = () =>
     new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 16);
@@ -64,11 +74,30 @@ const DashboardPage = () => {
     }
   }, [accessToken]);
 
+  const fetchMyReviews = useCallback(async () => {
+    if (!accessToken) return;
+    setLoadingReviews(true);
+    setReviewsError(null);
+    try {
+      const [tasks, projects] = await Promise.all([
+        listTaskReviews(accessToken),
+        listProjectReviews(accessToken),
+      ]);
+      setTaskReviews(tasks);
+      setProjectReviews(projects);
+    } catch (error) {
+      setReviewsError((error as Error).message);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [accessToken]);
+
   useEffect(() => {
     setProjectOutcomeDeadline(defaultOutcomeDeadline());
     void fetchMyProjects();
     void fetchMyInvites();
-  }, [fetchMyProjects, fetchMyInvites]);
+    void fetchMyReviews();
+  }, [fetchMyProjects, fetchMyInvites, fetchMyReviews]);
 
   const handleCreateProject = async (event: FormEvent) => {
     event.preventDefault();
