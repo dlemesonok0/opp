@@ -5,10 +5,11 @@ from uuid import UUID
 from datetime import datetime, timedelta
 
 from app.core.models.course import Project
+from app.auth.api.deps import get_current_user
 from app.core.models.task import Task, OutcomeTask, Dependency, TaskAssignee
 from app.core.models.review import ReviewTask
 from app.core.models.users import Membership, User
-from app.core.models.enums import DepType
+from app.core.models.enums import DepType, CompletionRule, TaskStatus
 from app.core.schemas.top_schemas import TaskOut, TaskCreate, TaskUpdate, ReviewTaskOut, ReviewCreate
 from app.db import get_db
 
@@ -163,6 +164,30 @@ def _clamp_child_to_parent_window(parent_task: Task, start_dt, end_dt, duration_
             end_dt = start_dt + timedelta(hours=duration_hours)
 
     return start_dt, end_dt
+
+
+def _apply_completion_rule(db: Session, task: Task, now: datetime):
+    """Update task status according to its completion rule and assignee progress."""
+    if task.actual_start is None:
+        task.actual_start = now
+
+    if task.completion_rule == CompletionRule.AnyOne:
+        task.status = TaskStatus.Done
+        task.actual_end = task.actual_end or now
+        return
+
+    if task.completion_rule == CompletionRule.AllAssignees:
+        total = db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).count()
+        completed = (
+            db.query(TaskAssignee)
+            .filter(TaskAssignee.task_id == task.id, TaskAssignee.is_completed.is_(True))
+            .count()
+        )
+        if total > 0 and completed == total:
+            task.status = TaskStatus.Done
+            task.actual_end = task.actual_end or now
+        elif task.status == TaskStatus.Planned:
+            task.status = TaskStatus.InProgress
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get_db)):
@@ -406,3 +431,33 @@ def add_task_reviewer(task_id: UUID, payload: ReviewCreate, db: Session = Depend
     db.commit()
     db.refresh(review)
     return review
+
+
+@plain_router.post("/{task_id}/complete", response_model=TaskOut)
+def complete_task_for_assignee(
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    assignee = (
+        db.query(TaskAssignee)
+        .filter(TaskAssignee.task_id == task.id, TaskAssignee.user_id == current_user.id)
+        .first()
+    )
+    if not assignee:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You are not assigned to this task")
+
+    now = datetime.utcnow()
+    if not assignee.is_completed:
+        assignee.is_completed = True
+        assignee.completed_at = now
+        db.flush()  # ensure updated flags are visible for completion rule checks
+
+    _apply_completion_rule(db, task, now)
+    db.commit()
+    db.refresh(task)
+    return task

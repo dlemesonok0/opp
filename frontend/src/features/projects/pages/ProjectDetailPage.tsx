@@ -8,7 +8,15 @@ import {
   type Project,
   type ProjectUpdatePayload,
 } from "../api/projectApi";
-import { addTaskReviewer, createTask, deleteTask, listProjectTasks, updateTask, type Task } from "../../tasks/api/taskApi";
+import {
+  addTaskReviewer,
+  createTask,
+  deleteTask,
+  listProjectTasks,
+  updateTask,
+  completeTask,
+  type Task,
+} from "../../tasks/api/taskApi";
 import { type ProjectFormValues } from "../components/ProjectForm";
 import { type TaskFormValues } from "../../tasks/components/TaskForm";
 import { createTeamInvite, listTeamInvites, revokeInvite, type TeamInvite } from "../../teams/api/inviteApi";
@@ -214,6 +222,8 @@ const ProjectDetailPage = () => {
     const minDurationHours = durationHours > 0 ? durationHours : 1;
     const durationMs = minDurationHours * 3600 * 1000;
 
+    const startProvided = Boolean(values.plannedStart);
+    const plannedEndProvided = Boolean(values.plannedEnd);
     const projectDeadlineTs = project?.outcome.deadline ? new Date(project.outcome.deadline).getTime() : NaN;
     const parentStartTs = parentTask ? new Date(parentTask.planned_start).getTime() : null;
     const parentEndTs = parentTask ? new Date(parentTask.deadline ?? parentTask.planned_end).getTime() : null;
@@ -254,6 +264,11 @@ const ProjectDetailPage = () => {
     let startTs = values.plannedStart ? new Date(values.plannedStart).getTime() : NaN;
     let endTs = values.deadline ? new Date(values.deadline).getTime() : NaN;
     const plannedEndTs = values.plannedEnd ? new Date(values.plannedEnd).getTime() : NaN;
+
+    // Если указан старт и длительность, но нет явного plannedEnd — ставим конец = старт + длительность.
+    if (startProvided && !plannedEndProvided && Number.isFinite(startTs)) {
+      endTs = startTs + durationMs;
+    }
 
     if (parentTask) {
       // Подзадача: стараемся втиснуть ближе к концу родителя.
@@ -511,6 +526,21 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleCompleteTask = async (taskId: string) => {
+    if (!accessToken || !projectId) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await completeTask(accessToken, taskId);
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   const openTaskModal = (task?: Task | null, parent?: Task | null) => {
     setEditingTask(task ?? null);
     setParentTask(parent ?? null);
@@ -717,6 +747,7 @@ const ProjectDetailPage = () => {
         savingTask={savingTask}
         childrenMap={childrenMap}
         hasMembers={hasMembers}
+        currentUserId={user?.id ?? null}
         onCreateTask={() => openTaskModal(null)}
         onEditTask={(task) => openTaskModal(task)}
         onCreateSubtask={(parent) => openTaskModal(null, parent)}
@@ -727,6 +758,7 @@ const ProjectDetailPage = () => {
           setReviewerMessage(null);
           setReviewerError(null);
         }}
+        onCompleteTask={(task) => handleCompleteTask(task.id)}
       />
 
       <TimelineSection tasks={tasks} timeline={timeline} axisTicks={axisTicks} />

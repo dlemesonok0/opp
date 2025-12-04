@@ -6,6 +6,7 @@ export type TaskSummary = {
   id: string;
   title: string;
   project_id: string;
+  project_title?: string | null;
 };
 
 export type ProjectSummary = {

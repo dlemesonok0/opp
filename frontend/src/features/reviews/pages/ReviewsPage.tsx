@@ -41,33 +41,33 @@ const ReviewsPage = () => {
     <div className="stack">
       <div className="table-header">
         <div>
-          <h2>My reviews</h2>
-          <p className="muted">Tasks and projects where you are a reviewer</p>
+          <h2>Мои ревью</h2>
+          <p className="muted">Задачи и проекты, где вы назначены ревьюером</p>
         </div>
         <select className="input" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
-          <option value="all">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Accepted">Accepted</option>
-          <option value="Rejected">Rejected</option>
+          <option value="all">Все</option>
+          <option value="Pending">В ожидании</option>
+          <option value="Accepted">Принято</option>
+          <option value="Rejected">Отклонено</option>
         </select>
       </div>
 
       {error && <p className="form-error">{error}</p>}
       {loading ? (
-        <p>Loading reviews...</p>
+        <p>Загружаем ревью...</p>
       ) : taskReviews.length === 0 && projectReviews.length === 0 ? (
-        <p className="muted">No reviews assigned to you.</p>
+        <p className="muted">У вас пока нет ревью.</p>
       ) : (
         <>
           <section className="card">
             <div className="table-header">
               <div>
-                <h3>Tasks</h3>
-                <p className="muted">Tasks where you are reviewer</p>
+                <h3>Задачи</h3>
+                <p className="muted">Задачи, где вы ревьюер</p>
               </div>
             </div>
             {taskReviews.length === 0 ? (
-              <p className="muted">No task reviews.</p>
+              <p className="muted">Нет задач на ревью.</p>
             ) : (
               <div className="stack">
                 {taskReviews.map((rev) => (
@@ -75,12 +75,14 @@ const ReviewsPage = () => {
                     <div className="table-header">
                       <div>
                         <strong>{rev.task.title}</strong>
-                        <p className="muted">Project: {rev.task.project_id}</p>
-                        {rev.comment && <p className="muted">Comment: {rev.comment}</p>}
+                        <p className="muted">
+                          Project: {rev.task.project_title || rev.task.project_id}
+                        </p>
+                        {rev.comment && <p className="muted">Комментарий: {rev.comment}</p>}
                       </div>
                       {renderStatus(rev.status)}
                     </div>
-                    <p className="muted">Assigned: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
+                    <p className="muted">Назначено: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
                   </div>
                 ))}
               </div>
@@ -90,12 +92,12 @@ const ReviewsPage = () => {
           <section className="card">
             <div className="table-header">
               <div>
-                <h3>Projects</h3>
-                <p className="muted">Projects where you are reviewer</p>
+                <h3>Проекты</h3>
+                <p className="muted">Проекты, где вы ревьюер</p>
               </div>
             </div>
             {projectReviews.length === 0 ? (
-              <p className="muted">No project reviews.</p>
+              <p className="muted">Нет проектов на ревью.</p>
             ) : (
               <div className="stack">
                 {projectReviews.map((rev) => (
@@ -103,11 +105,11 @@ const ReviewsPage = () => {
                     <div className="table-header">
                       <div>
                         <strong>{rev.project.title}</strong>
-                        {rev.comment && <p className="muted">Comment: {rev.comment}</p>}
+                        {rev.comment && <p className="muted">Комментарий: {rev.comment}</p>}
                       </div>
                       {renderStatus(rev.status)}
                     </div>
-                    <p className="muted">Assigned: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
+                    <p className="muted">Назначено: {new Date(rev.created_at).toLocaleString("ru-RU")}</p>
                   </div>
                 ))}
               </div>

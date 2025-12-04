@@ -49,6 +49,14 @@ class TaskDependencyOut(ORM):
     lag: int
 
 
+class TaskAssigneeOut(ORM):
+    id: UUID
+    task_id: UUID
+    user_id: UUID
+    is_completed: bool
+    completed_at: Optional[datetime] = None
+
+
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
@@ -136,6 +144,7 @@ class TaskOut(ORM):
     outcome: OutcomeTaskOut
     dependencies: List[TaskDependencyOut] = []
     assignee_ids: List[UUID] = []
+    assignees: List[TaskAssigneeOut] = []
 
 
 class TeamCreate(BaseModel):
@@ -203,6 +212,7 @@ class TaskSummary(ORM):
     id: UUID
     title: str
     project_id: UUID
+    project_title: Optional[str] = None
 
 
 class ProjectSummary(ORM):

@@ -25,15 +25,17 @@ def list_task_reviews(
     current_user: User = Depends(get_current_user),
 ):
     q = (
-        db.query(ReviewTask, Task)
+        db.query(ReviewTask, Task, Project.title)
         .join(Task, Task.id == ReviewTask.task_id)
+        .join(Project, Project.id == Task.project_id)
         .filter(ReviewTask.reviewer_id == current_user.id)
     )
     if status_filter:
         q = q.filter(ReviewTask.status == status_filter)
     rows = q.order_by(ReviewTask.created_at.desc()).all()
     result: List[ReviewTaskWithTask] = []
-    for review, task in rows:
+    for review, task, project_title in rows:
+        setattr(task, "project_title", project_title)
         result.append(
             ReviewTaskWithTask(
                 id=review.id,
@@ -43,6 +45,7 @@ def list_task_reviews(
                 comment=review.comment,
                 created_at=review.created_at,
                 task=task,
+                project_title=project_title,
             )
         )
     return result

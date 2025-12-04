@@ -17,6 +17,7 @@ export type Task = {
   auto_scheduled: boolean;
   completion_rule: string;
   assignee_ids: string[];
+  assignees?: TaskAssignee[];
   dependencies: TaskDependency[];
   outcome: {
     id: string;
@@ -24,6 +25,14 @@ export type Task = {
     acceptance_criteria: string;
     deadline: string;
   };
+};
+
+export type TaskAssignee = {
+  id: string;
+  task_id: string;
+  user_id: string;
+  is_completed: boolean;
+  completed_at: string | null;
 };
 
 export type TaskDependency = {
@@ -113,6 +122,12 @@ export const updateTask = (token: string, taskId: string, payload: TaskUpdatePay
 export const deleteTask = (token: string, taskId: string) =>
   apiRequest<void>(`/tasks/${taskId}`, {
     method: "DELETE",
+    token,
+  });
+
+export const completeTask = (token: string, taskId: string) =>
+  apiRequest<Task>(`/tasks/${taskId}/complete`, {
+    method: "POST",
     token,
   });
 
