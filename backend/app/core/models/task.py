@@ -22,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.models.base import Base
 from app.core.models.enums import TaskStatus, CompletionRule, DepType
 from app.core.models.review import ReviewTask
-from app.core.models.comments import Attachment, Comment
+from app.core.models.comments import Comment
 
 
 class OutcomeTask(Base):
@@ -77,7 +77,6 @@ class Task(Base):
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     outcome: Mapped["OutcomeTask"] = relationship(back_populates="task")
-    attachments: Mapped[List["Attachment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
     comments: Mapped[List["Comment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
     assignees: Mapped[List["TaskAssignee"]] = relationship(back_populates="task", cascade="all, delete-orphan")

@@ -34,25 +34,3 @@ class Comment(Base):
     @property
     def author_email(self) -> Optional[str]:
         return self.author.email if self.author else None
-
-
-class Attachment(Base):
-    __tablename__ = "attachments"
-    __table_args__ = (
-        CheckConstraint(
-            "(task_id IS NOT NULL) OR (project_id IS NOT NULL)",
-            name="ck_attachment_target_present"
-        ),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    kind: Mapped[str] = mapped_column(String(50), nullable=False)
-    url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    external_id: Mapped[Optional[str]] = mapped_column(String(255))
-
-    task_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
-    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-
-    task: Mapped[Optional["Task"]] = relationship(back_populates="attachments")
-    project: Mapped[Optional["Project"]] = relationship(back_populates="attachments")

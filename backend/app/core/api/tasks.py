@@ -375,6 +375,7 @@ def recalc_tasks(project_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     return (
         db.query(Task)
+        .options(selectinload(Task.reviews))
         .filter(Task.project_id == project_id)
         .order_by(Task.planned_start)
         .all()
@@ -384,7 +385,12 @@ plain_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @plain_router.get("/{task_id}", response_model=TaskOut)
 def get_task(task_id: UUID, db: Session = Depends(get_db)):
-    obj = db.get(Task, task_id)
+    obj = (
+        db.query(Task)
+        .options(selectinload(Task.reviews))
+        .filter(Task.id == task_id)
+        .first()
+    )
     if not obj:
         raise HTTPException(404, "Task not found")
     return obj

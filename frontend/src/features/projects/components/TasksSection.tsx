@@ -130,20 +130,20 @@ const TasksSection = ({
             </button>
           </div>
         </header>
-        <div className="project-meta">
-          <span>
-            {new Date(task.planned_start).toLocaleDateString("ru-RU")} -{" "}
-            {new Date(task.deadline ?? task.planned_end).toLocaleDateString("ru-RU")}
-          </span>
-          <span>Правило завершения: {task.completion_rule}</span>
-          <span>Выполнено: {totalAssignees ? `${completedCount}/${totalAssignees}` : "исполнители не назначены"}</span>
-          {currentAssignment ? (
-            <span>Ваш статус: {currentAssignment.is_completed ? "отмечено" : "надо отметить"}</span>
-          ) : (
-            <span>Вы не исполнитель задачи</span>
-          )}
-          {task.outcome.result && <span>Фактический результат: {task.outcome.result}</span>}
-          {task.reviews?.length ? (
+          <div className="project-meta">
+            <span>
+              {new Date(task.planned_start).toLocaleDateString("ru-RU")} -{" "}
+              {new Date(task.deadline ?? task.planned_end).toLocaleDateString("ru-RU")}
+            </span>
+            <span>Правило завершения: {task.completion_rule}</span>
+            <span>Выполнено: {totalAssignees ? `${completedCount}/${totalAssignees}` : "исполнители не назначены"}</span>
+            {currentAssignment ? (
+              <span>Ваш статус: {currentAssignment.is_completed ? "отмечено" : "надо отметить"}</span>
+            ) : (
+              <span>Вы не исполнитель задачи</span>
+            )}
+            {task.outcome.result && <span>Фактический результат: {task.outcome.result}</span>}
+            {task.reviews?.length ? (
             <div className="stack" style={{ gap: "4px" }}>
               <strong>Ревью</strong>
               {task.reviews.map((r) => (
@@ -155,9 +155,9 @@ const TasksSection = ({
               ))}
             </div>
           ) : (
-            <span>Ревью пока нет</span>
-          )}
-        </div>
+              <span>Ревью пока нет</span>
+            )}
+          </div>
         {openComments[task.id] && (
           <div className="stack" style={{ gap: "8px", marginTop: "8px" }}>
             <div className="table-header" style={{ padding: 0 }}>

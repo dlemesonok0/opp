@@ -36,7 +36,6 @@ class Project(Base):
     team: Mapped[Optional["Team"]] = relationship(back_populates="projects")
     outcome: Mapped["OutcomeProject"] = relationship(back_populates="project")
     tasks: Mapped[List["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
-    attachments: Mapped[List["Attachment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     comments: Mapped[List["Comment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
     reviews: Mapped[List["ReviewProject"]] = relationship(back_populates="project", cascade="all, delete-orphan")
