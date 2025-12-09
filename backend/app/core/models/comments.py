@@ -25,9 +25,15 @@ class Comment(Base):
 
     task_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
     project_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    author_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
 
     task: Mapped[Optional["Task"]] = relationship(back_populates="comments")
     project: Mapped[Optional["Project"]] = relationship(back_populates="comments")
+    author: Mapped[Optional["User"]] = relationship(back_populates="comments")
+
+    @property
+    def author_email(self) -> Optional[str]:
+        return self.author.email if self.author else None
 
 
 class Attachment(Base):

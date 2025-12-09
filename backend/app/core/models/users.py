@@ -21,6 +21,7 @@ class User(Base):
     reviews_projects: Mapped[List["ReviewProject"]] = relationship(back_populates="reviewer")
     reviews_tasks: Mapped[List["ReviewTask"]] = relationship(back_populates="reviewer")
     task_assignments: Mapped[List["TaskAssignee"]] = relationship(back_populates="user")
+    comments: Mapped[List["Comment"]] = relationship(back_populates="author", cascade="all, delete-orphan")
 
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)

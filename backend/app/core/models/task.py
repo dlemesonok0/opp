@@ -69,7 +69,6 @@ class Task(Base):
     actual_start: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     actual_end: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    is_milestone: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     auto_scheduled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     completion_rule: Mapped[CompletionRule] = mapped_column(

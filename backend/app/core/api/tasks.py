@@ -9,8 +9,17 @@ from app.auth.api.deps import get_current_user
 from app.core.models.task import Task, OutcomeTask, Dependency, TaskAssignee
 from app.core.models.review import ReviewTask
 from app.core.models.users import Membership, User
+from app.core.models.comments import Comment
 from app.core.models.enums import DepType, CompletionRule, TaskStatus
-from app.core.schemas.top_schemas import TaskOut, TaskCreate, TaskUpdate, ReviewTaskOut, ReviewCreate
+from app.core.schemas.top_schemas import (
+    TaskOut,
+    TaskCreate,
+    TaskUpdate,
+    ReviewTaskOut,
+    ReviewCreate,
+    CommentOut,
+    CommentCreate,
+)
 from app.db import get_db
 
 router = APIRouter(prefix="/projects/{project_id}/tasks", tags=["tasks"])
@@ -300,7 +309,6 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
         planned_end=payload.plannedEnd,
         deadline=payload.deadline or payload.plannedEnd,
         auto_scheduled=payload.autoScheduled,
-        is_milestone=payload.isMilestone,
         completion_rule=payload.completionRule,
         outcome_task_id=ot.id,
     )
@@ -423,8 +431,6 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         t.planned_end = payload.plannedEnd
     if payload.deadline is not None:
         t.deadline = payload.deadline
-    if payload.isMilestone is not None:
-        t.is_milestone = payload.isMilestone
     if payload.autoScheduled is not None:
         t.auto_scheduled = payload.autoScheduled
     if payload.completionRule is not None:
@@ -533,6 +539,37 @@ def add_task_reviewer(task_id: UUID, payload: ReviewCreate, db: Session = Depend
     db.commit()
     db.refresh(review)
     return review
+
+
+@plain_router.get("/{task_id}/comments", response_model=List[CommentOut])
+def list_task_comments(task_id: UUID, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return (
+        db.query(Comment)
+        .options(selectinload(Comment.author))
+        .filter(Comment.task_id == task_id)
+        .order_by(Comment.created_at.asc())
+        .all()
+    )
+
+
+@plain_router.post("/{task_id}/comments", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
+def add_task_comment(
+    task_id: UUID,
+    payload: CommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    comment = Comment(task_id=task_id, text=payload.text, project_id=task.project_id, author_id=current_user.id)
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
 
 
 @plain_router.post("/{task_id}/complete", response_model=TaskOut)

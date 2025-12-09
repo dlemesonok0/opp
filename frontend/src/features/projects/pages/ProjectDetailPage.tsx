@@ -800,6 +800,7 @@ const ProjectDetailPage = () => {
         tasks={tasks}
         loadingTasks={loadingTasks}
         savingTask={savingTask}
+        accessToken={accessToken}
         recalculating={recalculating}
         childrenMap={childrenMap}
         hasMembers={hasMembers}

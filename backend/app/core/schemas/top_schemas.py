@@ -93,7 +93,6 @@ class TaskCreate(BaseModel):
     plannedStart: datetime
     plannedEnd: datetime
     deadline: Optional[datetime] = None
-    isMilestone: bool = False
     autoScheduled: bool = False
     completionRule: str = Field(pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
@@ -116,7 +115,6 @@ class TaskUpdate(BaseModel):
     plannedStart: Optional[datetime] = None
     plannedEnd: Optional[datetime] = None
     deadline: Optional[datetime] = None
-    isMilestone: Optional[bool] = None
     autoScheduled: Optional[bool] = None
     completionRule: Optional[str] = Field(default=None, pattern="^(AnyOne|AllAssignees)$")
     parentId: Optional[UUID] = None
@@ -145,7 +143,6 @@ class TaskOut(ORM):
     deadline: Optional[datetime]
     actual_start: Optional[datetime]
     actual_end: Optional[datetime]
-    is_milestone: bool
     auto_scheduled: bool
     completion_rule: str
     outcome: OutcomeTaskOut
@@ -190,6 +187,20 @@ class TeamInviteOut(ORM):
     status: str
     created_at: datetime
     team_name: str | None = None
+
+
+class CommentCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+
+
+class CommentOut(ORM):
+    id: UUID
+    task_id: UUID | None = None
+    project_id: UUID | None = None
+    author_id: UUID | None = None
+    author_email: str | None = None
+    text: str
+    created_at: datetime
 
 
 class ReviewCreate(BaseModel):

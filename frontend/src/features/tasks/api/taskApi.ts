@@ -13,7 +13,6 @@ export type Task = {
   deadline: string | null;
   actual_start: string | null;
   actual_end: string | null;
-  is_milestone: boolean;
   auto_scheduled: boolean;
   completion_rule: string;
   assignee_ids: string[];
@@ -43,6 +42,16 @@ export type TaskDependency = {
   successor_task_id: string;
   type: "FS" | "FF" | "SS" | "SF";
   lag: number;
+};
+
+export type TaskComment = {
+  id: string;
+  task_id: string | null;
+  project_id: string | null;
+  author_id: string | null;
+  author_email: string | null;
+  text: string;
+  created_at: string;
 };
 
 export type Assignee = {
@@ -147,4 +156,14 @@ export const addTaskReviewer = (token: string, taskId: string, payload: ReviewCr
     method: "POST",
     token,
     body: JSON.stringify(payload),
+  });
+
+export const listTaskComments = (token: string, taskId: string) =>
+  apiRequest<TaskComment[]>(`/tasks/${taskId}/comments`, { token });
+
+export const addTaskComment = (token: string, taskId: string, text: string) =>
+  apiRequest<TaskComment>(`/tasks/${taskId}/comments`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({ text }),
   });
