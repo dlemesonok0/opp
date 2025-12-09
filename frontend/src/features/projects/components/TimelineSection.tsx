@@ -39,11 +39,14 @@ const TimelineSection = ({ tasks, timeline, axisTicks }: TimelineSectionProps) =
 
     const total = timeline.max - timeline.min;
     const start = toTs(task.planned_start);
-    const end = toTs(task.deadline ?? task.planned_end);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || total <= 0) return null;
+    const plannedEnd = toTs(task.planned_end);
+    const deadlineTs = task.deadline ? toTs(task.deadline) : NaN;
+    if (!Number.isFinite(start) || !Number.isFinite(plannedEnd) || total <= 0) return null;
 
     const offset = Math.max(0, ((start - timeline.min) / total) * 100);
-    const width = Math.max(3, ((end - start) / total) * 100);
+    const safeEnd = Math.max(plannedEnd, start);
+    const width = Math.max(3, ((safeEnd - start) / total) * 100);
+    const deadlineOffset = Number.isFinite(deadlineTs) ? ((deadlineTs - timeline.min) / total) * 100 : null;
     const statusCls = statusClass(task.status);
 
     return (
@@ -58,6 +61,13 @@ const TimelineSection = ({ tasks, timeline, axisTicks }: TimelineSectionProps) =
           <div className={`gantt-bar ${statusCls}`} style={{ left: `${offset}%`, width: `${width}%` }}>
             <span className="gantt-bar__label">{task.title}</span>
           </div>
+          {deadlineOffset !== null && (
+            <div
+              className="gantt-deadline"
+              style={{ left: `${Math.min(100, Math.max(0, deadlineOffset))}%` }}
+              title="Deadline"
+            />
+          )}
         </div>
       </div>
     );

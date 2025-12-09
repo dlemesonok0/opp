@@ -421,6 +421,28 @@ textarea.input {
   overflow: hidden;
 }
 
+.gantt-deadline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  opacity: 0.9;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.gantt-deadline::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fff;
+}
+
 .gantt-bar {
   position: absolute;
   top: 6px;
