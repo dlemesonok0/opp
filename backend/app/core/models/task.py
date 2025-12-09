@@ -29,7 +29,7 @@ class OutcomeTask(Base):
     __tablename__ = "outcome_tasks"
 
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     acceptance_criteria: Mapped[str] = mapped_column(Text, nullable=False)
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -107,13 +107,21 @@ class TaskAssignee(Base):
     __tablename__ = "task_assignees"
 
     __table_args__ = (
-        UniqueConstraint("task_id", "user_id", name="uq_task_user"),
+        UniqueConstraint("task_id", "membership_id", name="uq_task_membership"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+
+    # Виртуальная штука, осталась с доисторических времён, когда юзеры могли быть назначены напрямую
+    # Теперь юзеры назначаются через членство в проекте, но поле оставлено для совместимости с бд и быстрым доступом к юзеру
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    
+    membership_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False
+    )
 
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

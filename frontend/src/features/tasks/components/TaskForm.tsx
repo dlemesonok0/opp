@@ -48,10 +48,12 @@ const emptyValues: TaskFormValues = {
 };
 
 const toInputValue = (value: string) => {
+  // Приводим ISO (UTC) к локали для поля datetime-local, чтобы не было смещения во времени
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  return date.toISOString().slice(0, 16);
+  const tzOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
 };
 
 const TaskForm = ({
@@ -151,20 +153,24 @@ const TaskForm = ({
       return;
     }
 
-    const plannedStart = values.plannedStart || "";
-    const plannedEnd = values.plannedEnd || "";
-    const deadline = values.deadline || "";
+    const plannedStartLocal = values.plannedStart || "";
+    const plannedEndLocal = values.plannedEnd || "";
+    const deadlineLocal = values.deadline || "";
+
+    const plannedStartIso = plannedStartLocal ? new Date(plannedStartLocal).toISOString() : "";
+    const plannedEndIso = plannedEndLocal ? new Date(plannedEndLocal).toISOString() : "";
+    const deadlineIso = deadlineLocal ? new Date(deadlineLocal).toISOString() : "";
 
     const duration = Number.isFinite(values.duration) ? values.duration : 0;
 
-    if (!deadline && !plannedStart && duration <= 0) {
+    if (!deadlineLocal && !plannedStartLocal && duration <= 0) {
       setError("Укажите дедлайн, плановое начало или трудозатраты");
       return;
     }
 
-    if (plannedStart && plannedEnd) {
-      const startTs = new Date(plannedStart).getTime();
-      const endTs = new Date(plannedEnd).getTime();
+    if (plannedStartLocal && plannedEndLocal) {
+      const startTs = new Date(plannedStartLocal).getTime();
+      const endTs = new Date(plannedEndLocal).getTime();
       if (Number.isFinite(startTs) && Number.isFinite(endTs) && endTs < startTs) {
         setError("Дата окончания раньше даты начала");
         return;
@@ -187,9 +193,9 @@ const TaskForm = ({
       ...values,
       title,
       description: values.description.trim(),
-      plannedStart,
-      plannedEnd,
-      deadline: deadline || plannedEnd,
+      plannedStart: plannedStartIso,
+      plannedEnd: plannedEndIso,
+      deadline: deadlineIso || plannedEndIso,
       duration,
       outcomeDescription: values.outcomeDescription.trim(),
       outcomeAcceptanceCriteria: values.outcomeAcceptanceCriteria.trim(),
@@ -252,7 +258,6 @@ const TaskForm = ({
           rows={3}
           value={values.description}
           onChange={(event) => updateField("description", event.target.value)}
-          required
         />
       </div>
 
@@ -296,19 +301,19 @@ const TaskForm = ({
 
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="task-duration">Duration (hours)</label>
-              <input
-                id="task-duration"
-                type="number"
-                min={0}
-                step="0.25"
-                className="input"
-                value={Number.isFinite(values.duration) ? values.duration : ""}
-                onChange={(event) =>
-                  updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
-                }
-                placeholder="Enter duration (hours, decimals allowed)"
-              />
+            <label htmlFor="task-duration">Duration (days)</label>
+            <input
+              id="task-duration"
+              type="number"
+              min={0}
+              step="0.25"
+              className="input"
+              value={Number.isFinite(values.duration) ? values.duration : ""}
+              onChange={(event) =>
+                updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
+              }
+              placeholder="Enter duration in days (decimals allowed)"
+            />
             </div>
             <div className="form-field">
               <label htmlFor="task-rule">Completion rule</label>

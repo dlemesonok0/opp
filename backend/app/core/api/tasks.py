@@ -65,7 +65,8 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
         deps_by_pred.setdefault(dep.predecessor_task_id, []).append(dep)
 
     def ensure_times(task: Task):
-        dur_hours = max(float(task.duration or 0), 1.0 / 60.0)
+        # duration хранится в днях; переводим в часы для расчётов
+        dur_hours = max(float(task.duration or 0) * 24.0, 1.0 / 60.0)
         start = task.planned_start
         end = task.deadline or task.planned_end
 
@@ -176,33 +177,43 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
 
     db.flush()
 
-def _resolve_assignee_user_ids(
+def _resolve_assignees(
     db: Session, project: Project, assignee_ids: Optional[List[UUID]]
-) -> List[UUID]:
+) -> List[tuple[UUID, UUID]]:
     """
-    Accepts a mix of user ids and the project team id and returns unique user ids to assign.
-    Team id expands to all current team members.
+    Accepts a mix of user ids, membership ids, and the project team id and returns unique (user_id, membership_id).
+    Только члены команды проекта. Team id разворачивается в membership текущей команды.
     """
     if not assignee_ids:
         return []
 
-    unique_user_ids: List[UUID] = []
+    if not project.team_id:
+        raise HTTPException(400, "Task assignees require the project to have a team")
+
+    resolved: List[tuple[UUID, UUID]] = []
     seen = set()
-    team_member_ids: Optional[List[UUID]] = None
+    team_memberships: Optional[List[Membership]] = None
 
     for raw_id in assignee_ids:
         if project.team_id and raw_id == project.team_id:
-            if team_member_ids is None:
-                team_member_ids = [
-                    row[0]
-                    for row in db.query(Membership.user_id).filter(Membership.team_id == project.team_id).all()
-                ]
-                if not team_member_ids:
+            if team_memberships is None:
+                team_memberships = db.query(Membership).filter(Membership.team_id == project.team_id).all()
+                if not team_memberships:
                     raise HTTPException(400, "Project team has no members to assign")
-            for member_id in team_member_ids:
-                if member_id not in seen:
-                    seen.add(member_id)
-                    unique_user_ids.append(member_id)
+            for m in team_memberships:
+                if m.user_id and m.user_id not in seen:
+                    seen.add(m.user_id)
+                    resolved.append((m.user_id, m.id))
+            continue
+
+        # Membership id?
+        membership = db.get(Membership, raw_id)
+        if membership:
+            if project.team_id and membership.team_id != project.team_id:
+                raise HTTPException(400, "Membership must belong to the project team")
+            if membership.user_id and membership.user_id not in seen:
+                seen.add(membership.user_id)
+                resolved.append((membership.user_id, membership.id))
             continue
 
         user = db.get(User, raw_id)
@@ -210,9 +221,17 @@ def _resolve_assignee_user_ids(
             raise HTTPException(400, "Assignee must be an existing user or the project team")
         if user.id not in seen:
             seen.add(user.id)
-            unique_user_ids.append(user.id)
+            mrow = (
+                db.query(Membership.id)
+                .filter(Membership.team_id == project.team_id, Membership.user_id == user.id)
+                .first()
+            )
+            if not mrow:
+                raise HTTPException(400, "Assignee must be a member of the project team")
+            membership_id = mrow[0]
+            resolved.append((user.id, membership_id))
 
-    return unique_user_ids
+    return resolved
 
 def _ensure_dependency_exists(
     db: Session, predecessor_id: UUID, successor_id: UUID, dep_type: DepType, lag: int = 0
@@ -347,10 +366,9 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
 
     if deps_to_create:
         db.add_all(deps_to_create)
-    assignee_ids = _resolve_assignee_user_ids(db, project, payload.assigneeIds)
-    for user_id in assignee_ids:
-        db.add(TaskAssignee(task_id=task.id, user_id=user_id))
-    _recalculate_project_schedule(db, project_id)
+    assignees = _resolve_assignees(db, project, payload.assigneeIds)
+    for user_id, membership_id in assignees:
+        db.add(TaskAssignee(task_id=task.id, user_id=user_id, membership_id=membership_id))
     db.commit()
     db.refresh(task)
     return task
@@ -402,6 +420,7 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         raise HTTPException(404, "Task not found")
     project = _ensure_same_project_or_404(db, t.project_id)
     previous_parent_id = t.parent_id
+    duration_changed = False
 
     if payload.parentId is not None:
         if payload.parentId:
@@ -411,6 +430,7 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
             t.parent_id = parent.id
         else:
             t.parent_id = None
+        pass
 
     current_parent_id = t.parent_id
     if payload.parentId is not None and previous_parent_id and previous_parent_id != current_parent_id:
@@ -422,6 +442,7 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
             Dependency.predecessor_task_id == t.id,
             Dependency.successor_task_id == previous_parent_id,
         ).delete()
+        pass
 
     if payload.title is not None:
         t.title = payload.title
@@ -429,6 +450,7 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         t.description = payload.description
     if payload.duration is not None:
         t.duration = payload.duration
+        duration_changed = True
     if payload.plannedStart is not None:
         t.planned_start = payload.plannedStart
     if payload.plannedEnd is not None:
@@ -443,6 +465,33 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         t.completion_rule = payload.completionRule
     if payload.outcomeResult is not None:
         t.outcome.result = payload.outcomeResult
+
+    duration_hours = max(float(t.duration or 0) * 24.0, 1.0 / 60.0)
+    dur_delta = timedelta(hours=duration_hours)
+
+    # Новый дедлайн: фиксируем конец, при необходимости сдвигаем старт
+    if payload.deadline is not None and t.deadline:
+        t.planned_end = t.deadline
+        if not t.planned_start or t.planned_start + dur_delta > t.deadline:
+            t.planned_start = t.deadline - dur_delta
+
+    # Новый planned_start: пересчитываем конец и, при необходимости, дедлайн
+    elif payload.plannedStart is not None and t.planned_start:
+        end_candidate = t.planned_start + dur_delta
+        t.planned_end = end_candidate
+        if not t.deadline or end_candidate > t.deadline:
+            t.deadline = end_candidate
+
+    # Только длительность поменяли
+    elif duration_changed:
+        if t.planned_start:
+            end_candidate = t.planned_start + dur_delta
+            t.planned_end = end_candidate
+            if not t.deadline or end_candidate > t.deadline:
+                t.deadline = end_candidate
+        elif t.deadline:
+            t.planned_start = t.deadline - dur_delta
+            t.planned_end = t.deadline
 
     parent_for_deps = db.get(Task, t.parent_id) if t.parent_id else None
     if payload.dependencies is not None:
@@ -486,20 +535,44 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         _ensure_dependency_exists(db, t.id, parent_for_deps.id, DepType.FF, 0)
     if payload.assigneeIds is not None:
         db.query(TaskAssignee).filter(TaskAssignee.task_id == t.id).delete()
-        assignee_ids = _resolve_assignee_user_ids(db, project, payload.assigneeIds)
-        for user_id in assignee_ids:
-            db.add(TaskAssignee(task_id=t.id, user_id=user_id))
+        assignees = _resolve_assignees(db, project, payload.assigneeIds)
+        for user_id, membership_id in assignees:
+            db.add(TaskAssignee(task_id=t.id, user_id=user_id, membership_id=membership_id))
+
+    # Пересчёт окна задачи из длительности: при смене дедлайна/старта/длительности
+    if duration_changed or payload.deadline is not None or payload.plannedStart is not None:
+        duration_hours = max(float(t.duration or 0) * 24.0, 1.0 / 60.0)
+        dur_delta = timedelta(hours=duration_hours)
+
+        if payload.deadline is not None:
+            # Держим новый дедлайн/конец как якорь
+            anchor = t.deadline
+            if anchor:
+                t.planned_end = anchor
+                t.planned_start = anchor - dur_delta
+        elif payload.plannedStart is not None:
+            # Держим новый старт как якорь
+            t.planned_start = payload.plannedStart
+            t.planned_end = t.planned_start + dur_delta
+            t.deadline = t.deadline or t.planned_end
+        elif t.deadline:
+            t.planned_end = t.deadline
+            t.planned_start = t.deadline - dur_delta
+        elif t.planned_end:
+            t.planned_start = t.planned_end - dur_delta
+        elif t.planned_start:
+            t.planned_end = t.planned_start + dur_delta
+            t.deadline = t.deadline or t.planned_end
 
     if t.parent_id and parent_for_deps:
         child_end = t.deadline or t.planned_end
         child_start = t.planned_start
-        duration_hours = max(float(t.duration or 0), 1.0 / 60.0)
+        duration_hours = max(float(t.duration or 0) * 24.0, 1.0 / 60.0)
         child_start, child_end = _clamp_child_to_parent_window(parent_for_deps, child_start, child_end, duration_hours)
         t.planned_start = child_start
         t.planned_end = child_end
         t.deadline = t.deadline or child_end
 
-    _recalculate_project_schedule(db, t.project_id)
     db.commit()
     db.refresh(t)
     return t

@@ -234,9 +234,9 @@ const ProjectDetailPage = () => {
       ? new Date(project.outcome.deadline).toISOString()
       : new Date().toISOString();
 
-    const durationHours = Math.max(0, values.duration);
-    const minDurationHours = durationHours > 0 ? durationHours : 1 / 60;
-    const durationMs = minDurationHours * 3600 * 1000;
+    const durationDays = Math.max(0, values.duration);
+    const minDurationDays = durationDays > 0 ? durationDays : 1 / 60 / 24;
+    const durationMs = minDurationDays * 24 * 3600 * 1000;
 
     const startProvided = Boolean(values.plannedStart);
     const plannedEndProvided = Boolean(values.plannedEnd);
@@ -410,7 +410,7 @@ const ProjectDetailPage = () => {
     const payload = {
       title: values.title.trim(),
       description: values.description.trim() || "Нет описания задачи",
-      duration: durationHours,
+      duration: durationDays,
       plannedStart: startIso,
       plannedEnd: new Date(endIso).toISOString(),
       deadline: new Date(finalEnd).toISOString(),
