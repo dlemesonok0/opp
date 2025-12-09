@@ -18,12 +18,14 @@ export type Task = {
   completion_rule: string;
   assignee_ids: string[];
   assignees?: TaskAssignee[];
+  reviews?: TaskReview[];
   dependencies: TaskDependency[];
   outcome: {
     id: string;
     description: string;
     acceptance_criteria: string;
     deadline: string;
+    result?: string | null;
   };
 };
 
@@ -79,6 +81,7 @@ export type TaskCreatePayload = {
     description: string;
     acceptanceCriteria: string;
     deadline: string;
+    result?: string | null;
   };
 };
 
@@ -94,6 +97,7 @@ export type TaskUpdatePayload = Partial<{
   parentId: string | null;
   assigneeIds: string[];
   dependencies: TaskCreatePayload["dependencies"];
+  outcomeResult: string | null;
 }>;
 
 export type ReviewCreatePayload = {
@@ -131,10 +135,11 @@ export const deleteTask = (token: string, taskId: string) =>
     token,
   });
 
-export const completeTask = (token: string, taskId: string) =>
+export const completeTask = (token: string, taskId: string, result?: string | null) =>
   apiRequest<Task>(`/tasks/${taskId}/complete`, {
     method: "POST",
     token,
+    body: result !== undefined ? JSON.stringify({ result }) : undefined,
   });
 
 export const addTaskReviewer = (token: string, taskId: string, payload: ReviewCreatePayload) =>

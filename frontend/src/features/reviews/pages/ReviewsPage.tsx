@@ -154,6 +154,7 @@ const ReviewsPage = () => {
                           Project: {rev.task.project_title || rev.task.project_id}
                         </p>
                         {rev.comment && <p className="muted">Комментарий: {rev.comment}</p>}
+                        {rev.com_reviewer && <p className="muted">Комментарий ревьюера: {rev.com_reviewer}</p>}
                       </div>
                       {renderStatus(rev.status)}
                     </div>
@@ -192,8 +193,8 @@ const ReviewsPage = () => {
                         />
                       </div>
                       <div className="table-actions">
-                        <button className="ghost-btn" type="button" onClick={() => navigate(`/projects/${rev.task.project_id}`)}>
-                          Открыть проект
+                        <button className="ghost-btn" type="button" onClick={() => navigate(`/reviews/tasks/${rev.id}`)}>
+                          Открыть ревью
                         </button>
                         <button
                           className="primary-btn"
@@ -228,6 +229,7 @@ const ReviewsPage = () => {
                       <div>
                         <strong>{rev.project.title}</strong>
                         {rev.comment && <p className="muted">Комментарий: {rev.comment}</p>}
+                        {rev.com_reviewer && <p className="muted">Комментарий ревьюера: {rev.com_reviewer}</p>}
                       </div>
                       {renderStatus(rev.status)}
                     </div>
@@ -266,8 +268,8 @@ const ReviewsPage = () => {
                         />
                       </div>
                       <div className="table-actions">
-                        <button className="ghost-btn" type="button" onClick={() => navigate(`/projects/${rev.project.id}`)}>
-                          Открыть проект
+                        <button className="ghost-btn" type="button" onClick={() => navigate(`/reviews/projects/${rev.id}`)}>
+                          Открыть ревью
                         </button>
                         <button
                           className="primary-btn"

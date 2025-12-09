@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from uuid import UUID
 
@@ -45,6 +45,7 @@ def create_project(
         description=payload.outcome.description,
         acceptance_criteria=payload.outcome.acceptanceCriteria,
         deadline=payload.outcome.deadline,
+        result=payload.outcome.result,
     )
     db.add(op)
     db.flush()
@@ -71,6 +72,7 @@ def list_projects(
 ):
     query = (
         db.query(Project)
+        .options(selectinload(Project.reviews))
         .join(Membership, Membership.team_id == Project.team_id)
         .filter(Membership.user_id == current_user.id)
     )
@@ -129,8 +131,12 @@ def update_project(
             proj.outcome.acceptance_criteria = payload.outcome.acceptanceCriteria
         if payload.outcome.deadline is not None:
             proj.outcome.deadline = payload.outcome.deadline
+        if payload.outcome.result is not None:
+            proj.outcome.result = payload.outcome.result
     db.commit()
     db.refresh(proj)
+    # ensure reviews are loaded for serializers
+    db.refresh(proj, attribute_names=["reviews"])
     return proj
 
 @router.post("/{project_id}/reviews", response_model=ReviewProjectOut, status_code=status.HTTP_201_CREATED)
@@ -162,7 +168,12 @@ def add_project_reviewer(
     if exists:
         raise HTTPException(status.HTTP_409_CONFLICT, "Reviewer already assigned to this project")
 
-    review = ReviewProject(project_id=project_id, reviewer_id=reviewer.id, comment=payload.comment)
+    review = ReviewProject(
+        project_id=project_id,
+        reviewer_id=reviewer.id,
+        comment=payload.comment,
+        com_reviewer=payload.comReviewer,
+    )
     db.add(review)
     db.commit()
     db.refresh(review)

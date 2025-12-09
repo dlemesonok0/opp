@@ -235,11 +235,13 @@ const ProjectDetailPage = () => {
       : new Date().toISOString();
 
     const durationHours = Math.max(0, values.duration);
-    const minDurationHours = durationHours > 0 ? durationHours : 1;
+    const minDurationHours = durationHours > 0 ? durationHours : 1 / 60;
     const durationMs = minDurationHours * 3600 * 1000;
 
     const startProvided = Boolean(values.plannedStart);
     const plannedEndProvided = Boolean(values.plannedEnd);
+    const durationOnly = !startProvided && !plannedEndProvided && !values.deadline;
+    const hasDependencies = (values.dependencies?.length ?? 0) > 0;
     const projectDeadlineTs = project?.outcome.deadline ? new Date(project.outcome.deadline).getTime() : NaN;
     const parentStartTs = parentTask ? new Date(parentTask.planned_start).getTime() : null;
     const parentEndTs = parentTask ? new Date(parentTask.deadline ?? parentTask.planned_end).getTime() : null;
@@ -339,17 +341,18 @@ const ProjectDetailPage = () => {
       }
     } else {
       // Обычная задача: если нет дат, считаем от дедлайна проекта или зависимостей.
-      const depAnchor = hasDepsEnd ? (latestPredEndTs as number) : NaN;
-      const deadlineAnchor = Number.isFinite(projectDeadlineTs) ? projectDeadlineTs : depAnchor;
+      const depAnchor = hasDependencies && hasDepsEnd ? (latestPredEndTs as number) : NaN;
+      const depEndAnchor = Number.isFinite(depEndConstraint) ? depEndConstraint : depAnchor;
+      const deadlineAnchor = hasDependencies && Number.isFinite(projectDeadlineTs) ? projectDeadlineTs : depAnchor;
       const endAnchor = Number.isFinite(plannedEndTs)
         ? plannedEndTs
         : Number.isFinite(endTs)
           ? endTs
-          : Number.isFinite(depAnchor)
-            ? depAnchor
-            : Number.isFinite(projectDeadlineTs)
-              ? projectDeadlineTs
-              : NaN;
+          : Number.isFinite(depEndAnchor)
+            ? depEndAnchor
+          : Number.isFinite(projectDeadlineTs) && (hasDependencies || durationOnly)
+            ? projectDeadlineTs
+            : NaN;
 
       if (!Number.isFinite(endTs)) {
         endTs = Number.isFinite(endAnchor) ? endAnchor : startTs + durationMs;
@@ -384,9 +387,19 @@ const ProjectDetailPage = () => {
       }
 
       // Если есть дедлайн проекта, не выходить за него.
-      if (Number.isFinite(projectDeadlineTs) && endTs > projectDeadlineTs) {
+      if (hasDependencies && Number.isFinite(projectDeadlineTs) && endTs > projectDeadlineTs) {
         endTs = projectDeadlineTs;
         startTs = endTs - durationMs;
+
+        if (Number.isFinite(depStartConstraint) && startTs < depStartConstraint) {
+          startTs = depStartConstraint;
+          endTs = Math.max(endTs, startTs + durationMs);
+        }
+
+        if (Number.isFinite(depEndConstraint) && endTs < depEndConstraint) {
+          endTs = depEndConstraint;
+          startTs = endTs - durationMs;
+        }
       }
     }
 
@@ -452,6 +465,7 @@ const ProjectDetailPage = () => {
           description: baseOutcomeDescription,
           acceptanceCriteria: baseOutcomeCriteria,
           deadline: new Date(values.outcomeDeadline).toISOString(),
+          result: values.outcomeResult.trim() || undefined,
         },
       };
       const updated = await updateProject(accessToken, project.id, payload);
@@ -542,12 +556,14 @@ const ProjectDetailPage = () => {
     }
   };
 
-  const handleCompleteTask = async (taskId: string) => {
+  const handleCompleteTask = async (task: Task) => {
     if (!accessToken || !projectId) return;
+    const resultInput = window.prompt("Добавьте результат выполнения (ссылка, текст)", task.outcome.result ?? "");
+    const result = resultInput !== null ? resultInput.trim() : undefined;
     setSavingTask(true);
     setError(null);
     try {
-      await completeTask(accessToken, taskId);
+      await completeTask(accessToken, task.id, result === "" ? null : result);
       const updated = await listProjectTasks(accessToken, projectId);
       setTasks(updated);
     } catch (err) {
@@ -728,6 +744,29 @@ const ProjectDetailPage = () => {
         onEditClick={() => setShowEditModal(true)}
       />
 
+      {project?.reviews?.length ? (
+        <section className="card">
+          <h3>Ревью проекта</h3>
+          <div className="stack" style={{ gap: "6px" }}>
+            {project.reviews.map((rev) => (
+              <div key={rev.id} className="project-meta">
+                <span>
+                  Статус: <strong>{rev.status}</strong>
+                </span>
+                {rev.comment && <span>Комментарий: {rev.comment}</span>}
+                {rev.com_reviewer && <span>Комментарий ревьюера: {rev.com_reviewer}</span>}
+                <span>Назначено: {new Date(rev.created_at).toLocaleString("ru-RU")}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="card">
+          <h3>Ревью проекта</h3>
+          <p className="muted">Пока нет ревью.</p>
+        </section>
+      )}
+
       <TeamSection
         project={project}
         members={members}
@@ -776,7 +815,7 @@ const ProjectDetailPage = () => {
           setReviewerMessage(null);
           setReviewerError(null);
         }}
-        onCompleteTask={(task) => handleCompleteTask(task.id)}
+        onCompleteTask={(task) => void handleCompleteTask(task)}
       />
 
       <TimelineSection tasks={tasks} timeline={timeline} axisTicks={axisTicks} />

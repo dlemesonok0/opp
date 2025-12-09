@@ -21,15 +21,18 @@ const ProjectSummarySection = ({ project, loadingProject, savingProject, onEditC
             <p className="muted">{project.description}</p>
           </div>
           <div className="stack" style={{ alignItems: "flex-end", gap: "0.5rem" }}>
-            <span className="muted">Дедлайн: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}</span>
+            <span className="muted">
+              Дедлайн результата: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
+            </span>
             <button className="ghost-btn" onClick={onEditClick}>
               {savingProject ? "Сохраняем..." : "Редактировать"}
             </button>
           </div>
         </div>
         <div className="info-block">
-          <p className="muted">Критерии приемки</p>
+          <p className="muted">Критерии успеха</p>
           <p>{project.outcome.acceptance_criteria}</p>
+          {project.outcome.result && <p className="muted">Фактический результат: {project.outcome.result}</p>}
         </div>
       </div>
     )}

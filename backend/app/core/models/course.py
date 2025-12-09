@@ -16,6 +16,7 @@ class OutcomeProject(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     acceptance_criteria: Mapped[str] = mapped_column(Text, nullable=False)
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="outcome", uselist=False)
 

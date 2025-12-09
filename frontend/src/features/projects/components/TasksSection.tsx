@@ -92,6 +92,21 @@ const TasksSection = ({
           ) : (
             <span>Вы не исполнитель задачи</span>
           )}
+          {task.outcome.result && <span>Фактический результат: {task.outcome.result}</span>}
+          {task.reviews?.length ? (
+            <div className="stack" style={{ gap: "4px" }}>
+              <strong>Ревью</strong>
+              {task.reviews.map((r) => (
+                <span key={r.id} className="muted">
+                  {r.status}
+                  {r.comment ? ` (${r.comment})` : ""}
+                  {r.com_reviewer ? ` · Комментарий ревьюера: ${r.com_reviewer}` : ""}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span>Ревью пока нет</span>
+          )}
         </div>
         {childrenMap.get(task.id)?.length ? (
           <div className="stack" style={{ gap: "8px" }}>

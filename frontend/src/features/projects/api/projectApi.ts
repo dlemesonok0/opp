@@ -5,6 +5,7 @@ export type ProjectOutcome = {
   description: string;
   acceptance_criteria: string;
   deadline: string;
+   result?: string | null;
 };
 
 export type Project = {
@@ -13,6 +14,7 @@ export type Project = {
   description: string;
   team_id: string | null;
   outcome: ProjectOutcome;
+  reviews?: ProjectReview[];
 };
 
 export type ProjectReview = {
@@ -21,6 +23,7 @@ export type ProjectReview = {
   reviewer_id: string;
   status: "Pending" | "Accepted" | "Rejected";
   comment?: string | null;
+  com_reviewer?: string | null;
   created_at: string;
 };
 
@@ -36,6 +39,7 @@ export type ProjectCreatePayload = {
     description: string;
     acceptanceCriteria: string;
     deadline: string;
+    result?: string | null;
   };
 };
 
@@ -47,6 +51,7 @@ export type ProjectUpdatePayload = {
     description?: string;
     acceptanceCriteria?: string;
     deadline?: string;
+    result?: string | null;
   };
 };
 

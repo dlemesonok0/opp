@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timedelta
@@ -35,15 +35,28 @@ def _child_must_fit_parent_window(parent_task: Task, start_dt, end_dt):
 
 def _recalculate_project_schedule(db: Session, project_id: UUID):
     """Simple recalculation to enforce base rules."""
+    project = db.get(Project, project_id)
+    project_deadline = project.outcome.deadline if project and project.outcome else None
     tasks = (
         db.query(Task)
         .filter(Task.project_id == project_id)
         .all()
     )
     by_id = {t.id: t for t in tasks}
+    deps = (
+        db.query(Dependency)
+        .join(Task, Dependency.successor_task_id == Task.id)
+        .filter(Task.project_id == project_id)
+        .all()
+    )
+    deps_by_successor = {}
+    deps_by_pred = {}
+    for dep in deps:
+        deps_by_successor.setdefault(dep.successor_task_id, []).append(dep)
+        deps_by_pred.setdefault(dep.predecessor_task_id, []).append(dep)
 
     def ensure_times(task: Task):
-        dur_hours = max(float(task.duration or 0), 1.0)
+        dur_hours = max(float(task.duration or 0), 1.0 / 60.0)
         start = task.planned_start
         end = task.deadline or task.planned_end
 
@@ -74,15 +87,83 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
                     if end and end < start:
                         end = start
 
+        dep_start_constraint = None
+        dep_end_constraint = None
+        for dep in deps_by_successor.get(task.id, []):
+            pred = by_id.get(dep.predecessor_task_id)
+            if not pred:
+                continue
+            pred_start = pred.planned_start
+            pred_end = pred.deadline or pred.planned_end
+            lag_delta = timedelta(hours=float(dep.lag or 0))
+            if dep.type == DepType.FS and pred_end:
+                candidate = pred_end + lag_delta
+                dep_start_constraint = candidate if dep_start_constraint is None else max(dep_start_constraint, candidate)
+            elif dep.type == DepType.SS and pred_start:
+                candidate = pred_start + lag_delta
+                dep_start_constraint = candidate if dep_start_constraint is None else max(dep_start_constraint, candidate)
+            elif dep.type == DepType.FF and pred_end:
+                candidate = pred_end + lag_delta
+                dep_end_constraint = candidate if dep_end_constraint is None else max(dep_end_constraint, candidate)
+            elif dep.type == DepType.SF and pred_start:
+                candidate = pred_start + lag_delta
+                dep_end_constraint = candidate if dep_end_constraint is None else max(dep_end_constraint, candidate)
+
+        if dep_start_constraint and (not start or start < dep_start_constraint):
+            start = dep_start_constraint
+            end = start + timedelta(hours=dur_hours)
+
+        if dep_end_constraint and (not end or end < dep_end_constraint):
+            end = dep_end_constraint
+            start = end - timedelta(hours=dur_hours)
+
         if end and start and end < start:
             end = start
 
+        if project_deadline and end and end > project_deadline:
+            end = project_deadline
+            start = end - timedelta(hours=dur_hours)
+
+        # Re-assert dependency constraints after deadline clamp
+        if dep_start_constraint and start and start < dep_start_constraint:
+            start = dep_start_constraint
+            end = start + timedelta(hours=dur_hours)
+
+        if dep_end_constraint and end and end < dep_end_constraint:
+            end = dep_end_constraint
+            start = end - timedelta(hours=dur_hours)
+
         task.planned_start = start
         task.planned_end = end
-        task.deadline = task.deadline or end
+        task.deadline = end
 
-    for t in tasks:
-        ensure_times(t)
+    # Build simple topological order to process predecessors first when possible
+    indeg = {t.id: 0 for t in tasks}
+    for succ_id, dep_list in deps_by_successor.items():
+        indeg[succ_id] = indeg.get(succ_id, 0) + len(dep_list)
+    queue = [tid for tid, d in indeg.items() if d == 0]
+    topo: list[UUID] = []
+    while queue:
+        cur = queue.pop(0)
+        topo.append(cur)
+        for dep in deps_by_pred.get(cur, []):
+            succ = dep.successor_task_id
+            indeg[succ] -= 1
+            if indeg[succ] == 0:
+                queue.append(succ)
+    if len(topo) != len(tasks):
+        # Cycle detected; fallback to original order
+        topo = [t.id for t in tasks]
+
+    # Apply dependency propagation multiple passes to stabilize schedules
+    ordered_tasks = [by_id[tid] for tid in topo]
+    for _ in range(max(1, len(tasks) * 2)):
+        before = [(t.id, t.planned_start, t.deadline or t.planned_end) for t in ordered_tasks]
+        for t in ordered_tasks:
+            ensure_times(t)
+        after = [(t.id, t.planned_start, t.deadline or t.planned_end) for t in ordered_tasks]
+        if before == after:
+            break
 
     db.flush()
 
@@ -204,6 +285,7 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
         description=payload.outcome.description,
         acceptance_criteria=payload.outcome.acceptanceCriteria,
         deadline=payload.outcome.deadline,
+        result=payload.outcome.result,
     )
     db.add(ot)
     db.flush()
@@ -270,6 +352,7 @@ def list_tasks(project_id: UUID, limit: int = 50, offset: int = 0, db: Session =
     _ensure_same_project_or_404(db, project_id)
     q = (
         db.query(Task)
+        .options(selectinload(Task.reviews))
         .filter(Task.project_id == project_id)
         .order_by(Task.planned_start)
         .limit(limit)
@@ -346,6 +429,8 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         t.auto_scheduled = payload.autoScheduled
     if payload.completionRule is not None:
         t.completion_rule = payload.completionRule
+    if payload.outcomeResult is not None:
+        t.outcome.result = payload.outcomeResult
 
     parent_for_deps = db.get(Task, t.parent_id) if t.parent_id else None
     if payload.dependencies is not None:
@@ -396,7 +481,7 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
     if t.parent_id and parent_for_deps:
         child_end = t.deadline or t.planned_end
         child_start = t.planned_start
-        duration_hours = max(float(t.duration or 0), 1.0)
+        duration_hours = max(float(t.duration or 0), 1.0 / 60.0)
         child_start, child_end = _clamp_child_to_parent_window(parent_for_deps, child_start, child_end, duration_hours)
         t.planned_start = child_start
         t.planned_end = child_end
@@ -438,7 +523,12 @@ def add_task_reviewer(task_id: UUID, payload: ReviewCreate, db: Session = Depend
     if existing:
         raise HTTPException(status.HTTP_409_CONFLICT, "Reviewer already assigned to this task")
 
-    review = ReviewTask(task_id=task_id, reviewer_id=reviewer.id, comment=payload.comment)
+    review = ReviewTask(
+        task_id=task_id,
+        reviewer_id=reviewer.id,
+        comment=payload.comment,
+        com_reviewer=payload.comReviewer,
+    )
     db.add(review)
     db.commit()
     db.refresh(review)
@@ -448,6 +538,7 @@ def add_task_reviewer(task_id: UUID, payload: ReviewCreate, db: Session = Depend
 @plain_router.post("/{task_id}/complete", response_model=TaskOut)
 def complete_task_for_assignee(
     task_id: UUID,
+    payload: dict | None = Body(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -468,6 +559,11 @@ def complete_task_for_assignee(
         assignee.is_completed = True
         assignee.completed_at = now
         db.flush()  # ensure updated flags are visible for completion rule checks
+
+    if payload and isinstance(payload, dict):
+        result = payload.get("result")
+        if result is not None:
+            task.outcome.result = result
 
     _apply_completion_rule(db, task, now)
     db.commit()

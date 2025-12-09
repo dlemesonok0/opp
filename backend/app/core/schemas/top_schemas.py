@@ -12,28 +12,33 @@ class OutcomeProjectIn(BaseModel):
     description: str
     acceptanceCriteria: str
     deadline: datetime
+    result: Optional[str] = None
 
 class OutcomeProjectUpdate(BaseModel):
     description: Optional[str] = None
     acceptanceCriteria: Optional[str] = None
     deadline: Optional[datetime] = None
+    result: Optional[str] = None
 
 class OutcomeProjectOut(ORM):
     id: UUID
     description: str
     acceptance_criteria: str
     deadline: datetime
+    result: Optional[str] = None
 
 class OutcomeTaskIn(BaseModel):
     description: str
     acceptanceCriteria: str
     deadline: datetime
+    result: Optional[str] = None
 
 class OutcomeTaskOut(ORM):
     id: UUID
     description: str
     acceptance_criteria: str
     deadline: datetime
+    result: Optional[str] = None
 
 class TaskDependencyIn(BaseModel):
     predecessorId: UUID
@@ -75,6 +80,7 @@ class ProjectOut(ORM):
     description: str
     team_id: Optional[UUID] = None
     outcome: OutcomeProjectOut
+    reviews: List["ReviewProjectOut"] = []
 
 
 class ProjectMembershipOut(ProjectOut):
@@ -83,7 +89,7 @@ class ProjectMembershipOut(ProjectOut):
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str
-    duration: int = Field(ge=0, default=0)
+    duration: float = Field(ge=0, default=0)
     plannedStart: datetime
     plannedEnd: datetime
     deadline: Optional[datetime] = None
@@ -106,7 +112,7 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
-    duration: Optional[int] = Field(default=None, ge=0)
+    duration: Optional[float] = Field(default=None, ge=0)
     plannedStart: Optional[datetime] = None
     plannedEnd: Optional[datetime] = None
     deadline: Optional[datetime] = None
@@ -116,6 +122,7 @@ class TaskUpdate(BaseModel):
     parentId: Optional[UUID] = None
     dependencies: Optional[List["TaskDependencyIn"]] = None
     assigneeIds: Optional[List[UUID]] = None
+    outcomeResult: Optional[str] = None
 
     @field_validator("plannedEnd")
     @classmethod
@@ -132,7 +139,7 @@ class TaskOut(ORM):
     title: str
     description: str
     status: str
-    duration: int
+    duration: float
     planned_start: datetime
     planned_end: datetime
     deadline: Optional[datetime]
@@ -145,6 +152,7 @@ class TaskOut(ORM):
     dependencies: List[TaskDependencyOut] = []
     assignee_ids: List[UUID] = []
     assignees: List[TaskAssigneeOut] = []
+    reviews: List["ReviewTaskOut"] = []
 
 
 class TeamCreate(BaseModel):
@@ -188,10 +196,12 @@ class ReviewCreate(BaseModel):
     reviewerId: Optional[UUID] = None
     reviewerEmail: Optional[str] = None
     comment: Optional[str] = None
+    comReviewer: Optional[str] = None
 
 class ReviewUpdate(BaseModel):
     status: ReviewStatus
     comment: Optional[str] = None
+    comReviewer: Optional[str] = None
 
 
 class ReviewTaskOut(ORM):
@@ -200,6 +210,7 @@ class ReviewTaskOut(ORM):
     reviewer_id: UUID
     status: ReviewStatus
     comment: Optional[str] = None
+    com_reviewer: Optional[str] = None
     created_at: datetime
 
 
@@ -209,6 +220,7 @@ class ReviewProjectOut(ORM):
     reviewer_id: UUID
     status: ReviewStatus
     comment: Optional[str] = None
+    com_reviewer: Optional[str] = None
     created_at: datetime
 
 

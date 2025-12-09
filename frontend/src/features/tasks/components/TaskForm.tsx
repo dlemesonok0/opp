@@ -301,12 +301,13 @@ const TaskForm = ({
                 id="task-duration"
                 type="number"
                 min={0}
+                step="0.25"
                 className="input"
                 value={Number.isFinite(values.duration) ? values.duration : ""}
                 onChange={(event) =>
                   updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
                 }
-                placeholder="Enter duration"
+                placeholder="Enter duration (hours, decimals allowed)"
               />
             </div>
             <div className="form-field">

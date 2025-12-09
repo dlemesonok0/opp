@@ -88,10 +88,6 @@ const TimelineSection = ({ tasks, timeline, axisTicks }: TimelineSectionProps) =
               <span className="legend-dot legend-dot--done" />
               Готово
             </span>
-            <span className="legend-item">
-              <span className="legend-dot legend-dot--blocked" />
-              Блок
-            </span>
           </div>
           <div className="gantt-wrapper">
             <div className="gantt-scroll">

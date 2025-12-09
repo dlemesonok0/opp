@@ -2,13 +2,26 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import String, UniqueConstraint, ForeignKey, DateTime, Boolean, Text, Enum, Integer, CheckConstraint, text
+from sqlalchemy import (
+    String,
+    UniqueConstraint,
+    ForeignKey,
+    DateTime,
+    Boolean,
+    Text,
+    Enum,
+    Integer,
+    Float,
+    CheckConstraint,
+    text,
+)
 
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.models.base import Base
 from app.core.models.enums import TaskStatus, CompletionRule, DepType
+from app.core.models.review import ReviewTask
 from app.core.models.comments import Attachment, Comment
 
 
@@ -19,6 +32,7 @@ class OutcomeTask(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     acceptance_criteria: Mapped[str] = mapped_column(Text, nullable=False)
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     task: Mapped["Task"] = relationship(back_populates="outcome", uselist=False)
 
@@ -44,7 +58,7 @@ class Task(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus, name="task_status"), default=TaskStatus.Planned,
                                                nullable=False)
-    duration: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration: Mapped[float] = mapped_column(Float, nullable=False)
 
     outcome_task_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("outcome_tasks.id", ondelete="RESTRICT"), nullable=False
@@ -68,6 +82,7 @@ class Task(Base):
     comments: Mapped[List["Comment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
     assignees: Mapped[List["TaskAssignee"]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    reviews: Mapped[List["ReviewTask"]] = relationship(back_populates="task", cascade="all, delete-orphan")
     predecessors: Mapped[List["Dependency"]] = relationship(
         back_populates="successor",
         foreign_keys="Dependency.successor_task_id",
