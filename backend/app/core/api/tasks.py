@@ -1,11 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from sqlalchemy.orm import Session, selectinload
+from typing import List, Optional
 from uuid import UUID
+from datetime import datetime, timedelta
 
 from app.core.models.course import Project
-from app.core.models.task import Task, OutcomeTask
-from app.core.schemas.top_schemas import TaskOut, TaskCreate, TaskUpdate
+from app.auth.api.deps import get_current_user
+from app.core.models.task import Task, OutcomeTask, Dependency, TaskAssignee
+from app.core.models.review import ReviewTask
+from app.core.models.users import Membership, User
+from app.core.models.comments import Comment
+from app.core.models.enums import DepType, CompletionRule, TaskStatus
+from app.core.schemas.top_schemas import (
+    TaskOut,
+    TaskCreate,
+    TaskUpdate,
+    ReviewTaskOut,
+    ReviewCreate,
+    CommentOut,
+    CommentCreate,
+)
 from app.db import get_db
 
 router = APIRouter(prefix="/projects/{project_id}/tasks", tags=["tasks"])
@@ -16,9 +30,258 @@ def _ensure_same_project_or_404(db: Session, project_id: UUID):
         raise HTTPException(404, "Project not found")
     return proj
 
+def _child_must_fit_parent_window(parent_task: Task, start_dt, end_dt):
+    parent_start = parent_task.planned_start
+    parent_end = parent_task.deadline or parent_task.planned_end
+
+    if parent_start and start_dt and start_dt < parent_start:
+        raise HTTPException(400, "Subtask must start after parent starts")
+    if parent_end and end_dt and end_dt > parent_end:
+        raise HTTPException(400, "Subtask must finish before parent ends")
+    if parent_end and start_dt and start_dt >= parent_end:
+        raise HTTPException(400, "Subtask must start before parent ends")
+
+
+def _recalculate_project_schedule(db: Session, project_id: UUID):
+    """Simple recalculation to enforce base rules."""
+    project = db.get(Project, project_id)
+    project_deadline = project.outcome.deadline if project and project.outcome else None
+    tasks = (
+        db.query(Task)
+        .filter(Task.project_id == project_id)
+        .all()
+    )
+    by_id = {t.id: t for t in tasks}
+    deps = (
+        db.query(Dependency)
+        .join(Task, Dependency.successor_task_id == Task.id)
+        .filter(Task.project_id == project_id)
+        .all()
+    )
+    deps_by_successor = {}
+    deps_by_pred = {}
+    for dep in deps:
+        deps_by_successor.setdefault(dep.successor_task_id, []).append(dep)
+        deps_by_pred.setdefault(dep.predecessor_task_id, []).append(dep)
+
+    def ensure_times(task: Task):
+        dur_hours = max(float(task.duration or 0), 1.0 / 60.0)
+        start = task.planned_start
+        end = task.deadline or task.planned_end
+
+        if not start and not end:
+            end = datetime.utcnow()
+            start = end - timedelta(hours=dur_hours)
+        elif start and not end:
+            end = start + timedelta(hours=dur_hours)
+        elif end and not start:
+            start = end - timedelta(hours=dur_hours)
+
+        if task.parent_id:
+            parent = by_id.get(task.parent_id)
+            if parent:
+                parent_start = parent.planned_start
+                parent_end = parent.deadline or parent.planned_end
+
+                if parent_start and start and start < parent_start:
+                    start = parent_start
+                    end = start + timedelta(hours=dur_hours)
+
+                if parent_end and end and end > parent_end:
+                    end = parent_end
+                    start = end - timedelta(hours=dur_hours)
+
+                if parent_start and start and start < parent_start:
+                    start = parent_start
+                    if end and end < start:
+                        end = start
+
+        dep_start_constraint = None
+        dep_end_constraint = None
+        for dep in deps_by_successor.get(task.id, []):
+            pred = by_id.get(dep.predecessor_task_id)
+            if not pred:
+                continue
+            pred_start = pred.planned_start
+            pred_end = pred.deadline or pred.planned_end
+            lag_delta = timedelta(hours=float(dep.lag or 0))
+            if dep.type == DepType.FS and pred_end:
+                candidate = pred_end + lag_delta
+                dep_start_constraint = candidate if dep_start_constraint is None else max(dep_start_constraint, candidate)
+            elif dep.type == DepType.SS and pred_start:
+                candidate = pred_start + lag_delta
+                dep_start_constraint = candidate if dep_start_constraint is None else max(dep_start_constraint, candidate)
+            elif dep.type == DepType.FF and pred_end:
+                candidate = pred_end + lag_delta
+                dep_end_constraint = candidate if dep_end_constraint is None else max(dep_end_constraint, candidate)
+            elif dep.type == DepType.SF and pred_start:
+                candidate = pred_start + lag_delta
+                dep_end_constraint = candidate if dep_end_constraint is None else max(dep_end_constraint, candidate)
+
+        if dep_start_constraint and (not start or start < dep_start_constraint):
+            start = dep_start_constraint
+            end = start + timedelta(hours=dur_hours)
+
+        if dep_end_constraint and (not end or end < dep_end_constraint):
+            end = dep_end_constraint
+            start = end - timedelta(hours=dur_hours)
+
+        if end and start and end < start:
+            end = start
+
+        if project_deadline and end and end > project_deadline:
+            end = project_deadline
+            start = end - timedelta(hours=dur_hours)
+
+        # Re-assert dependency constraints after deadline clamp
+        if dep_start_constraint and start and start < dep_start_constraint:
+            start = dep_start_constraint
+            end = start + timedelta(hours=dur_hours)
+
+        if dep_end_constraint and end and end < dep_end_constraint:
+            end = dep_end_constraint
+            start = end - timedelta(hours=dur_hours)
+
+        task.planned_start = start
+        task.planned_end = end
+        task.deadline = end
+
+    # Build simple topological order to process predecessors first when possible
+    indeg = {t.id: 0 for t in tasks}
+    for succ_id, dep_list in deps_by_successor.items():
+        indeg[succ_id] = indeg.get(succ_id, 0) + len(dep_list)
+    queue = [tid for tid, d in indeg.items() if d == 0]
+    topo: list[UUID] = []
+    while queue:
+        cur = queue.pop(0)
+        topo.append(cur)
+        for dep in deps_by_pred.get(cur, []):
+            succ = dep.successor_task_id
+            indeg[succ] -= 1
+            if indeg[succ] == 0:
+                queue.append(succ)
+    if len(topo) != len(tasks):
+        # Cycle detected; fallback to original order
+        topo = [t.id for t in tasks]
+
+    # Apply dependency propagation multiple passes to stabilize schedules
+    ordered_tasks = [by_id[tid] for tid in topo]
+    for _ in range(max(1, len(tasks) * 2)):
+        before = [(t.id, t.planned_start, t.deadline or t.planned_end) for t in ordered_tasks]
+        for t in ordered_tasks:
+            ensure_times(t)
+        after = [(t.id, t.planned_start, t.deadline or t.planned_end) for t in ordered_tasks]
+        if before == after:
+            break
+
+    db.flush()
+
+def _resolve_assignee_user_ids(
+    db: Session, project: Project, assignee_ids: Optional[List[UUID]]
+) -> List[UUID]:
+    """
+    Accepts a mix of user ids and the project team id and returns unique user ids to assign.
+    Team id expands to all current team members.
+    """
+    if not assignee_ids:
+        return []
+
+    unique_user_ids: List[UUID] = []
+    seen = set()
+    team_member_ids: Optional[List[UUID]] = None
+
+    for raw_id in assignee_ids:
+        if project.team_id and raw_id == project.team_id:
+            if team_member_ids is None:
+                team_member_ids = [
+                    row[0]
+                    for row in db.query(Membership.user_id).filter(Membership.team_id == project.team_id).all()
+                ]
+                if not team_member_ids:
+                    raise HTTPException(400, "Project team has no members to assign")
+            for member_id in team_member_ids:
+                if member_id not in seen:
+                    seen.add(member_id)
+                    unique_user_ids.append(member_id)
+            continue
+
+        user = db.get(User, raw_id)
+        if not user:
+            raise HTTPException(400, "Assignee must be an existing user or the project team")
+        if user.id not in seen:
+            seen.add(user.id)
+            unique_user_ids.append(user.id)
+
+    return unique_user_ids
+
+def _ensure_dependency_exists(
+    db: Session, predecessor_id: UUID, successor_id: UUID, dep_type: DepType, lag: int = 0
+) -> None:
+    exists = (
+        db.query(Dependency)
+        .filter(
+            Dependency.predecessor_task_id == predecessor_id,
+            Dependency.successor_task_id == successor_id,
+        )
+        .first()
+    )
+    if exists:
+        exists.type = dep_type
+        exists.lag = lag
+    else:
+        db.add(
+            Dependency(
+                predecessor_task_id=predecessor_id,
+                successor_task_id=successor_id,
+                type=dep_type,
+                lag=lag,
+            )
+        )
+
+def _clamp_child_to_parent_window(parent_task: Task, start_dt, end_dt, duration_hours: float):
+    parent_start = parent_task.planned_start
+    parent_end = parent_task.deadline or parent_task.planned_end
+
+    if parent_start and start_dt and start_dt < parent_start:
+        start_dt = parent_start
+        end_dt = start_dt + timedelta(hours=duration_hours)
+
+    if parent_end and end_dt and end_dt > parent_end:
+        end_dt = parent_end
+        start_dt = end_dt - timedelta(hours=duration_hours)
+        if parent_start and start_dt < parent_start:
+            start_dt = parent_start
+            end_dt = start_dt + timedelta(hours=duration_hours)
+
+    return start_dt, end_dt
+
+
+def _apply_completion_rule(db: Session, task: Task, now: datetime):
+    """Update task status according to its completion rule and assignee progress."""
+    if task.actual_start is None:
+        task.actual_start = now
+
+    if task.completion_rule == CompletionRule.AnyOne:
+        task.status = TaskStatus.Done
+        task.actual_end = task.actual_end or now
+        return
+
+    if task.completion_rule == CompletionRule.AllAssignees:
+        total = db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).count()
+        completed = (
+            db.query(TaskAssignee)
+            .filter(TaskAssignee.task_id == task.id, TaskAssignee.is_completed.is_(True))
+            .count()
+        )
+        if total > 0 and completed == total:
+            task.status = TaskStatus.Done
+            task.actual_end = task.actual_end or now
+        elif task.status == TaskStatus.Planned:
+            task.status = TaskStatus.InProgress
+
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get_db)):
-    _ensure_same_project_or_404(db, project_id)
+    project = _ensure_same_project_or_404(db, project_id)
 
     parent_id = payload.parentId
     parent = None
@@ -31,6 +294,7 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
         description=payload.outcome.description,
         acceptance_criteria=payload.outcome.acceptanceCriteria,
         deadline=payload.outcome.deadline,
+        result=payload.outcome.result,
     )
     db.add(ot)
     db.flush()
@@ -43,11 +307,50 @@ def create_task(project_id: UUID, payload: TaskCreate, db: Session = Depends(get
         duration=payload.duration,
         planned_start=payload.plannedStart,
         planned_end=payload.plannedEnd,
-        is_milestone=payload.isMilestone,
+        deadline=payload.deadline or payload.plannedEnd,
+        auto_scheduled=payload.autoScheduled,
         completion_rule=payload.completionRule,
         outcome_task_id=ot.id,
     )
     db.add(task)
+    db.flush()
+
+    deps_to_create: List[Dependency] = []
+    dep_pairs = set()
+
+    def _queue_dependency(predecessor_id: UUID, successor_id: UUID, dep_type: DepType, lag: int = 0):
+        pair = (predecessor_id, successor_id)
+        if pair in dep_pairs:
+            return
+        dep_pairs.add(pair)
+        deps_to_create.append(
+            Dependency(
+                predecessor_task_id=predecessor_id,
+                successor_task_id=successor_id,
+                type=dep_type,
+                lag=lag,
+            )
+        )
+
+    # If this is a subtask, make it start after the parent and finish before the parent ends.
+    if parent_id:
+        _child_must_fit_parent_window(parent, task.planned_start, task.deadline or task.planned_end)
+        _queue_dependency(parent_id, task.id, DepType.SS, 0)
+        _queue_dependency(task.id, parent_id, DepType.FF, 0)
+
+    if payload.dependencies:
+        for dep in payload.dependencies:
+            pred = db.get(Task, dep.predecessorId)
+            if not pred or pred.project_id != project_id:
+                raise HTTPException(400, "dependency predecessor must be in the same project")
+            _queue_dependency(dep.predecessorId, task.id, dep.type, dep.lag)
+
+    if deps_to_create:
+        db.add_all(deps_to_create)
+    assignee_ids = _resolve_assignee_user_ids(db, project, payload.assigneeIds)
+    for user_id in assignee_ids:
+        db.add(TaskAssignee(task_id=task.id, user_id=user_id))
+    _recalculate_project_schedule(db, project_id)
     db.commit()
     db.refresh(task)
     return task
@@ -57,6 +360,7 @@ def list_tasks(project_id: UUID, limit: int = 50, offset: int = 0, db: Session =
     _ensure_same_project_or_404(db, project_id)
     q = (
         db.query(Task)
+        .options(selectinload(Task.reviews))
         .filter(Task.project_id == project_id)
         .order_by(Task.planned_start)
         .limit(limit)
@@ -64,11 +368,29 @@ def list_tasks(project_id: UUID, limit: int = 50, offset: int = 0, db: Session =
     )
     return q.all()
 
+@router.post("/recalculate", response_model=List[TaskOut])
+def recalc_tasks(project_id: UUID, db: Session = Depends(get_db)):
+    _ensure_same_project_or_404(db, project_id)
+    _recalculate_project_schedule(db, project_id)
+    db.commit()
+    return (
+        db.query(Task)
+        .options(selectinload(Task.reviews))
+        .filter(Task.project_id == project_id)
+        .order_by(Task.planned_start)
+        .all()
+    )
+
 plain_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @plain_router.get("/{task_id}", response_model=TaskOut)
 def get_task(task_id: UUID, db: Session = Depends(get_db)):
-    obj = db.get(Task, task_id)
+    obj = (
+        db.query(Task)
+        .options(selectinload(Task.reviews))
+        .filter(Task.id == task_id)
+        .first()
+    )
     if not obj:
         raise HTTPException(404, "Task not found")
     return obj
@@ -78,6 +400,8 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
     t = db.get(Task, task_id)
     if not t:
         raise HTTPException(404, "Task not found")
+    project = _ensure_same_project_or_404(db, t.project_id)
+    previous_parent_id = t.parent_id
 
     if payload.parentId is not None:
         if payload.parentId:
@@ -87,6 +411,17 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
             t.parent_id = parent.id
         else:
             t.parent_id = None
+
+    current_parent_id = t.parent_id
+    if payload.parentId is not None and previous_parent_id and previous_parent_id != current_parent_id:
+        db.query(Dependency).filter(
+            Dependency.predecessor_task_id == previous_parent_id,
+            Dependency.successor_task_id == t.id,
+        ).delete()
+        db.query(Dependency).filter(
+            Dependency.predecessor_task_id == t.id,
+            Dependency.successor_task_id == previous_parent_id,
+        ).delete()
 
     if payload.title is not None:
         t.title = payload.title
@@ -100,11 +435,71 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         if payload.plannedStart is None and t.planned_start and payload.plannedEnd < t.planned_start:
             raise HTTPException(400, "plannedEnd must be >= plannedStart")
         t.planned_end = payload.plannedEnd
-    if payload.isMilestone is not None:
-        t.is_milestone = payload.isMilestone
+    if payload.deadline is not None:
+        t.deadline = payload.deadline
+    if payload.autoScheduled is not None:
+        t.auto_scheduled = payload.autoScheduled
     if payload.completionRule is not None:
         t.completion_rule = payload.completionRule
+    if payload.outcomeResult is not None:
+        t.outcome.result = payload.outcomeResult
 
+    parent_for_deps = db.get(Task, t.parent_id) if t.parent_id else None
+    if payload.dependencies is not None:
+        # replace dependencies where this task is successor
+        db.query(Dependency).filter(Dependency.successor_task_id == t.id).delete()
+        if t.parent_id:
+            db.query(Dependency).filter(
+                Dependency.predecessor_task_id == t.id,
+                Dependency.successor_task_id == t.parent_id,
+            ).delete()
+        deps_to_create: List[Dependency] = []
+        dep_pairs = set()
+
+        def _queue_dependency(predecessor_id: UUID, successor_id: UUID, dep_type: DepType, lag: int = 0):
+            pair = (predecessor_id, successor_id)
+            if pair in dep_pairs:
+                return
+            dep_pairs.add(pair)
+            deps_to_create.append(
+                Dependency(
+                    predecessor_task_id=predecessor_id,
+                    successor_task_id=successor_id,
+                    type=dep_type,
+                    lag=lag,
+                )
+            )
+
+        if parent_for_deps:
+            _queue_dependency(parent_for_deps.id, t.id, DepType.SS, 0)
+            _queue_dependency(t.id, parent_for_deps.id, DepType.FF, 0)
+        for dep in payload.dependencies:
+            pred = db.get(Task, dep.predecessorId)
+            if not pred or pred.project_id != t.project_id:
+                raise HTTPException(400, "dependency predecessor must be in the same project")
+            _queue_dependency(dep.predecessorId, t.id, dep.type, dep.lag)
+
+        if deps_to_create:
+            db.add_all(deps_to_create)
+    elif parent_for_deps:
+        _ensure_dependency_exists(db, parent_for_deps.id, t.id, DepType.SS, 0)
+        _ensure_dependency_exists(db, t.id, parent_for_deps.id, DepType.FF, 0)
+    if payload.assigneeIds is not None:
+        db.query(TaskAssignee).filter(TaskAssignee.task_id == t.id).delete()
+        assignee_ids = _resolve_assignee_user_ids(db, project, payload.assigneeIds)
+        for user_id in assignee_ids:
+            db.add(TaskAssignee(task_id=t.id, user_id=user_id))
+
+    if t.parent_id and parent_for_deps:
+        child_end = t.deadline or t.planned_end
+        child_start = t.planned_start
+        duration_hours = max(float(t.duration or 0), 1.0 / 60.0)
+        child_start, child_end = _clamp_child_to_parent_window(parent_for_deps, child_start, child_end, duration_hours)
+        t.planned_start = child_start
+        t.planned_end = child_end
+        t.deadline = t.deadline or child_end
+
+    _recalculate_project_schedule(db, t.project_id)
     db.commit()
     db.refresh(t)
     return t
@@ -116,3 +511,104 @@ def delete_task(task_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(404, "Task not found")
     db.delete(t)
     db.commit()
+
+
+@plain_router.post("/{task_id}/reviews", response_model=ReviewTaskOut, status_code=status.HTTP_201_CREATED)
+def add_task_reviewer(task_id: UUID, payload: ReviewCreate, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    reviewer: User | None = None
+    if payload.reviewerId:
+        reviewer = db.get(User, payload.reviewerId)
+    elif payload.reviewerEmail:
+        reviewer = db.query(User).filter(User.email == payload.reviewerEmail).first()
+    if not reviewer:
+        raise HTTPException(404, "User not found")
+
+    existing = (
+        db.query(ReviewTask)
+        .filter(ReviewTask.task_id == task_id, ReviewTask.reviewer_id == reviewer.id)
+        .first()
+    )
+    if existing:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Reviewer already assigned to this task")
+
+    review = ReviewTask(
+        task_id=task_id,
+        reviewer_id=reviewer.id,
+        comment=payload.comment,
+        com_reviewer=payload.comReviewer,
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+@plain_router.get("/{task_id}/comments", response_model=List[CommentOut])
+def list_task_comments(task_id: UUID, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return (
+        db.query(Comment)
+        .options(selectinload(Comment.author))
+        .filter(Comment.task_id == task_id)
+        .order_by(Comment.created_at.asc())
+        .all()
+    )
+
+
+@plain_router.post("/{task_id}/comments", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
+def add_task_comment(
+    task_id: UUID,
+    payload: CommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    comment = Comment(task_id=task_id, text=payload.text, project_id=task.project_id, author_id=current_user.id)
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@plain_router.post("/{task_id}/complete", response_model=TaskOut)
+def complete_task_for_assignee(
+    task_id: UUID,
+    payload: dict | None = Body(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    assignee = (
+        db.query(TaskAssignee)
+        .filter(TaskAssignee.task_id == task.id, TaskAssignee.user_id == current_user.id)
+        .first()
+    )
+    if not assignee:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You are not assigned to this task")
+
+    now = datetime.utcnow()
+    if not assignee.is_completed:
+        assignee.is_completed = True
+        assignee.completed_at = now
+        db.flush()  # ensure updated flags are visible for completion rule checks
+
+    if payload and isinstance(payload, dict):
+        result = payload.get("result")
+        if result is not None:
+            task.outcome.result = result
+
+    _apply_completion_rule(db, task, now)
+    db.commit()
+    db.refresh(task)
+    return task

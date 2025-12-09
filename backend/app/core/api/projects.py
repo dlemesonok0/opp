@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from uuid import UUID
 
 from app.auth.api.deps import get_current_user
 from app.core.models.course import OutcomeProject, Project
+from app.core.models.review import ReviewProject
 from app.core.models.users import Membership, Team, User
-from app.core.schemas.top_schemas import ProjectOut, ProjectCreate, ProjectUpdate
+from app.core.schemas.top_schemas import (
+    ProjectOut,
+    ProjectCreate,
+    ProjectUpdate,
+    ReviewProjectOut,
+    ReviewCreate,
+)
 from app.db import get_db
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -38,6 +45,7 @@ def create_project(
         description=payload.outcome.description,
         acceptance_criteria=payload.outcome.acceptanceCriteria,
         deadline=payload.outcome.deadline,
+        result=payload.outcome.result,
     )
     db.add(op)
     db.flush()
@@ -64,6 +72,7 @@ def list_projects(
 ):
     query = (
         db.query(Project)
+        .options(selectinload(Project.reviews))
         .join(Membership, Membership.team_id == Project.team_id)
         .filter(Membership.user_id == current_user.id)
     )
@@ -122,9 +131,53 @@ def update_project(
             proj.outcome.acceptance_criteria = payload.outcome.acceptanceCriteria
         if payload.outcome.deadline is not None:
             proj.outcome.deadline = payload.outcome.deadline
+        if payload.outcome.result is not None:
+            proj.outcome.result = payload.outcome.result
     db.commit()
     db.refresh(proj)
+    # ensure reviews are loaded for serializers
+    db.refresh(proj, attribute_names=["reviews"])
     return proj
+
+@router.post("/{project_id}/reviews", response_model=ReviewProjectOut, status_code=status.HTTP_201_CREATED)
+def add_project_reviewer(
+    project_id: UUID,
+    payload: ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    proj = db.get(Project, project_id)
+    if not proj:
+        raise HTTPException(404, "Project not found")
+    if proj.team_id:
+        _require_membership(db, proj.team_id, current_user.id, "add reviewer")
+
+    reviewer: User | None = None
+    if payload.reviewerId:
+        reviewer = db.get(User, payload.reviewerId)
+    elif payload.reviewerEmail:
+        reviewer = db.query(User).filter(User.email == payload.reviewerEmail).first()
+    if not reviewer:
+        raise HTTPException(404, "User not found")
+
+    exists = (
+        db.query(ReviewProject)
+        .filter(ReviewProject.project_id == project_id, ReviewProject.reviewer_id == reviewer.id)
+        .first()
+    )
+    if exists:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Reviewer already assigned to this project")
+
+    review = ReviewProject(
+        project_id=project_id,
+        reviewer_id=reviewer.id,
+        comment=payload.comment,
+        com_reviewer=payload.comReviewer,
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    return review
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(

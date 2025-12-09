@@ -19,6 +19,7 @@ class ReviewProject(Base):
     status: Mapped[ReviewStatus] = mapped_column(Enum(ReviewStatus, name="review_status"), default=ReviewStatus.Pending,
                                                  nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
+    com_reviewer: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     project: Mapped["Project"] = relationship(back_populates="reviews")
@@ -35,7 +36,8 @@ class ReviewTask(Base):
     status: Mapped[ReviewStatus] = mapped_column(Enum(ReviewStatus, name="review_status"), default=ReviewStatus.Pending,
                                                  nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
+    com_reviewer: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    task: Mapped["Task"] = relationship()
+    task: Mapped["Task"] = relationship(back_populates="reviews")
     reviewer: Mapped["User"] = relationship(back_populates="reviews_tasks")

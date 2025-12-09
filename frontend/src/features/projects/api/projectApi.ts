@@ -5,6 +5,7 @@ export type ProjectOutcome = {
   description: string;
   acceptance_criteria: string;
   deadline: string;
+   result?: string | null;
 };
 
 export type Project = {
@@ -13,6 +14,17 @@ export type Project = {
   description: string;
   team_id: string | null;
   outcome: ProjectOutcome;
+  reviews?: ProjectReview[];
+};
+
+export type ProjectReview = {
+  id: string;
+  project_id: string;
+  reviewer_id: string;
+  status: "Pending" | "Accepted" | "Rejected";
+  comment?: string | null;
+  com_reviewer?: string | null;
+  created_at: string;
 };
 
 export type ProjectMembership = Project & {
@@ -27,6 +39,7 @@ export type ProjectCreatePayload = {
     description: string;
     acceptanceCriteria: string;
     deadline: string;
+    result?: string | null;
   };
 };
 
@@ -38,6 +51,7 @@ export type ProjectUpdatePayload = {
     description?: string;
     acceptanceCriteria?: string;
     deadline?: string;
+    result?: string | null;
   };
 };
 
@@ -73,3 +87,14 @@ export const deleteProject = (token: string, projectId: string) =>
 
 export const getProject = (token: string, projectId: string) =>
   apiRequest<Project>(`/projects/${projectId}`, { token });
+
+export const addProjectReviewer = (
+  token: string,
+  projectId: string,
+  payload: { reviewerId?: string; reviewerEmail?: string; comment?: string | null },
+) =>
+  apiRequest<ProjectReview>(`/projects/${projectId}/reviews`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });

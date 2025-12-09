@@ -16,6 +16,7 @@ class OutcomeProject(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     acceptance_criteria: Mapped[str] = mapped_column(Text, nullable=False)
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="outcome", uselist=False)
 
@@ -35,7 +36,6 @@ class Project(Base):
     team: Mapped[Optional["Team"]] = relationship(back_populates="projects")
     outcome: Mapped["OutcomeProject"] = relationship(back_populates="project")
     tasks: Mapped[List["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
-    attachments: Mapped[List["Attachment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     comments: Mapped[List["Comment"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
     reviews: Mapped[List["ReviewProject"]] = relationship(back_populates="project", cascade="all, delete-orphan")

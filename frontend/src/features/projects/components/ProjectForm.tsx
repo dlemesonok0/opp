@@ -7,6 +7,7 @@ export type ProjectFormValues = {
   outcomeDescription: string;
   outcomeAcceptanceCriteria: string;
   outcomeDeadline: string;
+  outcomeResult: string;
 };
 
 type ProjectFormProps = {
@@ -23,6 +24,7 @@ const emptyValues: ProjectFormValues = {
   outcomeDescription: "",
   outcomeAcceptanceCriteria: "",
   outcomeDeadline: "",
+  outcomeResult: "",
 };
 
 const ProjectForm = ({
@@ -43,6 +45,7 @@ const ProjectForm = ({
         outcomeDescription: initialProject.outcome.description,
         outcomeAcceptanceCriteria: initialProject.outcome.acceptance_criteria,
         outcomeDeadline: initialProject.outcome.deadline.slice(0, 16),
+        outcomeResult: initialProject.outcome.result ?? "",
       });
       setShowExtras(true);
     } else {
@@ -125,6 +128,17 @@ const ProjectForm = ({
               value={values.outcomeAcceptanceCriteria}
               onChange={(event) => updateField("outcomeAcceptanceCriteria", event.target.value)}
               placeholder="Как поймём, что задача выполнена (необязательно)"
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="outcome-result">Фактический результат (ссылка или текст)</label>
+            <textarea
+              id="outcome-result"
+              className="input"
+              rows={2}
+              value={values.outcomeResult}
+              onChange={(event) => updateField("outcomeResult", event.target.value)}
+              placeholder="Ссылка на коммит, деплой или описание фактического результата"
             />
           </div>
         </>
