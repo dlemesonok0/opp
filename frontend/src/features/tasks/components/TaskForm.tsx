@@ -157,24 +157,46 @@ const TaskForm = ({
     const plannedEndLocal = values.plannedEnd || "";
     const deadlineLocal = values.deadline || "";
 
-    const plannedStartIso = plannedStartLocal ? new Date(plannedStartLocal).toISOString() : "";
-    const plannedEndIso = plannedEndLocal ? new Date(plannedEndLocal).toISOString() : "";
-    const deadlineIso = deadlineLocal ? new Date(deadlineLocal).toISOString() : "";
+    const plannedStartDate = plannedStartLocal ? new Date(plannedStartLocal) : null;
+    const plannedEndDate = plannedEndLocal ? new Date(plannedEndLocal) : null;
+    const deadlineDate = deadlineLocal ? new Date(deadlineLocal) : null;
+
+    if (plannedStartDate && !Number.isFinite(plannedStartDate.getTime())) {
+      setError("Invalid planned start date");
+      return;
+    }
+    if (plannedEndDate && !Number.isFinite(plannedEndDate.getTime())) {
+      setError("Invalid planned end date");
+      return;
+    }
+    if (deadlineDate && !Number.isFinite(deadlineDate.getTime())) {
+      setError("Invalid deadline date");
+      return;
+    }
+
+    const plannedStartIso = plannedStartDate ? plannedStartDate.toISOString() : "";
+    const plannedEndIso = plannedEndDate ? plannedEndDate.toISOString() : "";
+    const deadlineIso = deadlineDate ? deadlineDate.toISOString() : "";
 
     const duration = Number.isFinite(values.duration) ? values.duration : 0;
 
     if (!deadlineLocal && !plannedStartLocal && duration <= 0) {
-      setError("Укажите дедлайн, плановое начало или трудозатраты");
+      setError("Задайте длительность или дату начала/дедлайн");
       return;
     }
 
     if (plannedStartLocal && plannedEndLocal) {
-      const startTs = new Date(plannedStartLocal).getTime();
-      const endTs = new Date(plannedEndLocal).getTime();
+      const startTs = plannedStartDate!.getTime();
+      const endTs = plannedEndDate!.getTime();
       if (Number.isFinite(startTs) && Number.isFinite(endTs) && endTs < startTs) {
-        setError("Дата окончания раньше даты начала");
+        setError("Плановое окончание раньше старта");
         return;
       }
+    }
+
+    if (deadlineDate && plannedStartDate && deadlineDate.getTime() < plannedStartDate.getTime()) {
+      setError("Дедлайн не может быть раньше планового старта");
+      return;
     }
 
     const teamAssignee = assignees.find((a) => a.type === "team");
