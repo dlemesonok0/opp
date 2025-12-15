@@ -46,16 +46,13 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
     """Simple recalculation to enforce base rules."""
     project = db.get(Project, project_id)
     project_deadline = project.outcome.deadline if project and project.outcome else None
-    tasks = (
-        db.query(Task)
-        .filter(Task.project_id == project_id, Task.status != TaskStatus.Done)
-        .all()
-    )
+    tasks = db.query(Task).filter(Task.project_id == project_id).all()
     by_id = {t.id: t for t in tasks}
+    movable_tasks = [t for t in tasks if t.status != TaskStatus.Done]
     deps = (
         db.query(Dependency)
         .join(Task, Dependency.successor_task_id == Task.id)
-        .filter(Task.project_id == project_id, Task.status != TaskStatus.Done)
+        .filter(Task.project_id == project_id)
         .all()
     )
     deps_by_successor = {}
@@ -65,6 +62,8 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
         deps_by_pred.setdefault(dep.predecessor_task_id, []).append(dep)
 
     def ensure_times(task: Task):
+        if task.status == TaskStatus.Done:
+            return
         # duration хранится в днях; переводим в часы для расчётов
         dur_hours = max(float(task.duration or 0) * 24.0, 1.0 / 60.0)
         start = task.planned_start
@@ -149,8 +148,10 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
         task.planned_end = end
 
     # Build simple topological order to process predecessors first when possible
-    indeg = {t.id: 0 for t in tasks}
+    indeg = {t.id: 0 for t in movable_tasks}
     for succ_id, dep_list in deps_by_successor.items():
+        if succ_id not in indeg:
+            continue
         indeg[succ_id] = indeg.get(succ_id, 0) + len(dep_list)
     queue = [tid for tid, d in indeg.items() if d == 0]
     topo: list[UUID] = []
@@ -159,16 +160,17 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
         topo.append(cur)
         for dep in deps_by_pred.get(cur, []):
             succ = dep.successor_task_id
-            indeg[succ] -= 1
-            if indeg[succ] == 0:
-                queue.append(succ)
-    if len(topo) != len(tasks):
-        # Cycle detected; fallback to original order
-        topo = [t.id for t in tasks]
+            if succ in indeg:
+                indeg[succ] -= 1
+                if indeg[succ] == 0:
+                    queue.append(succ)
+    if len(topo) != len(movable_tasks):
+        # Cycle detected; fallback to original order of movable tasks
+        topo = [t.id for t in movable_tasks]
 
     # Apply dependency propagation multiple passes to stabilize schedules
     ordered_tasks = [by_id[tid] for tid in topo]
-    for _ in range(max(1, len(tasks) * 2)):
+    for _ in range(max(1, len(ordered_tasks) * 2)):
         before = [(t.id, t.planned_start, t.deadline or t.planned_end) for t in ordered_tasks]
         for t in ordered_tasks:
             ensure_times(t)

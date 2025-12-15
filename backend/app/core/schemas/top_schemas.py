@@ -220,6 +220,8 @@ class ReviewTaskOut(ORM):
     id: UUID
     task_id: UUID
     reviewer_id: UUID
+    reviewer_email: str | None = None
+    reviewer_name: str | None = None
     status: ReviewStatus
     comment: Optional[str] = None
     com_reviewer: Optional[str] = None
@@ -230,6 +232,8 @@ class ReviewProjectOut(ORM):
     id: UUID
     project_id: UUID
     reviewer_id: UUID
+    reviewer_email: str | None = None
+    reviewer_name: str | None = None
     status: ReviewStatus
     comment: Optional[str] = None
     com_reviewer: Optional[str] = None

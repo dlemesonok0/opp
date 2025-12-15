@@ -18,10 +18,6 @@ const statusClass = (status: string) => {
       return "gantt-bar--done";
     case "InProgress":
       return "gantt-bar--progress";
-    case "Blocked":
-      return "gantt-bar--blocked";
-    case "Cancelled":
-      return "gantt-bar--cancelled";
     default:
       return "gantt-bar--planned";
   }

@@ -25,6 +25,16 @@ class ReviewProject(Base):
     project: Mapped["Project"] = relationship(back_populates="reviews")
     reviewer: Mapped["User"] = relationship(back_populates="reviews_projects")
 
+    @property
+    def reviewer_email(self) -> str | None:
+        return self.reviewer.email if self.reviewer else None
+
+    @property
+    def reviewer_name(self) -> str | None:
+        if not self.reviewer:
+            return None
+        return self.reviewer.full_name or self.reviewer.email
+
 
 class ReviewTask(Base):
     __tablename__ = "review_tasks"
@@ -41,3 +51,13 @@ class ReviewTask(Base):
 
     task: Mapped["Task"] = relationship(back_populates="reviews")
     reviewer: Mapped["User"] = relationship(back_populates="reviews_tasks")
+
+    @property
+    def reviewer_email(self) -> str | None:
+        return self.reviewer.email if self.reviewer else None
+
+    @property
+    def reviewer_name(self) -> str | None:
+        if not self.reviewer:
+            return None
+        return self.reviewer.full_name or self.reviewer.email

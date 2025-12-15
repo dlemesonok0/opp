@@ -72,7 +72,7 @@ def list_projects(
 ):
     query = (
         db.query(Project)
-        .options(selectinload(Project.reviews))
+        .options(selectinload(Project.reviews).selectinload(ReviewProject.reviewer))
         .join(Membership, Membership.team_id == Project.team_id)
         .filter(Membership.user_id == current_user.id)
     )
@@ -91,7 +91,12 @@ def get_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    proj = db.get(Project, project_id)
+    proj = (
+        db.query(Project)
+        .options(selectinload(Project.reviews).selectinload(ReviewProject.reviewer))
+        .filter(Project.id == project_id)
+        .first()
+    )
     if not proj:
         raise HTTPException(404, "Project not found")
     if not proj.team_id:
