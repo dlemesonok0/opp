@@ -5,7 +5,7 @@ export type Task = {
   project_id: string;
   parent_id: string | null;
   title: string;
-  description: string;
+  description: string | null;
   status: string;
   duration: number;
   planned_start: string;
@@ -32,6 +32,7 @@ export type TaskAssignee = {
   id: string;
   task_id: string;
   user_id: string;
+  membership_id: string | null;
   is_completed: boolean;
   completed_at: string | null;
 };

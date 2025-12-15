@@ -12,8 +12,8 @@ const MainLayout = () => {
             Opp
           </Link>
           <nav className="topbar__nav">
-            <Link to="/">Projects</Link>
-            <Link to="/reviews">My reviews</Link>
+            <Link to="/">Проекты</Link>
+            <Link to="/reviews">Требует ревью</Link>
           </nav>
           <div className="topbar__text">
             <strong>Панель управления</strong>

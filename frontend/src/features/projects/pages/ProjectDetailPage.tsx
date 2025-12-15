@@ -43,7 +43,9 @@ const buildTimeline = (tasks: Task[]): TimelineBounds | null => {
 
   tasks.forEach((task) => {
     const start = new Date(task.planned_start).getTime();
-    const end = new Date(task.deadline ?? task.planned_end).getTime();
+    const plannedEnd = new Date(task.planned_end).getTime();
+    const deadline = task.deadline ? new Date(task.deadline).getTime() : NaN;
+    const end = Number.isFinite(deadline) ? Math.max(plannedEnd, deadline) : plannedEnd;
     min = Math.min(min, start);
     max = Math.max(max, end);
   });
@@ -234,9 +236,9 @@ const ProjectDetailPage = () => {
       ? new Date(project.outcome.deadline).toISOString()
       : new Date().toISOString();
 
-    const durationHours = Math.max(0, values.duration);
-    const minDurationHours = durationHours > 0 ? durationHours : 1 / 60;
-    const durationMs = minDurationHours * 3600 * 1000;
+    const durationDays = Math.max(0, values.duration);
+    const minDurationDays = durationDays > 0 ? durationDays : 1 / 60 / 24;
+    const durationMs = minDurationDays * 24 * 3600 * 1000;
 
     const startProvided = Boolean(values.plannedStart);
     const plannedEndProvided = Boolean(values.plannedEnd);
@@ -280,11 +282,14 @@ const ProjectDetailPage = () => {
 
     // Базовые значения от пользователя или родителя.
     let startTs = values.plannedStart ? new Date(values.plannedStart).getTime() : NaN;
-    let endTs = values.deadline ? new Date(values.deadline).getTime() : NaN;
     const plannedEndTs = values.plannedEnd ? new Date(values.plannedEnd).getTime() : NaN;
+    const deadlineTs = values.deadline ? new Date(values.deadline).getTime() : NaN;
+    let endTs = plannedEndTs;
+    const originalStartTs = editingTask ? new Date(editingTask.planned_start).getTime() : NaN;
+    const startShifted = Number.isFinite(startTs) && Number.isFinite(originalStartTs) && startTs !== originalStartTs;
 
     // Если указан старт и длительность, но нет явного plannedEnd — ставим конец = старт + длительность.
-    if (startProvided && !plannedEndProvided && Number.isFinite(startTs)) {
+    if (startProvided && Number.isFinite(startTs) && (!plannedEndProvided || startShifted)) {
       endTs = startTs + durationMs;
     }
 
@@ -305,8 +310,8 @@ const ProjectDetailPage = () => {
       }
 
       if (!Number.isFinite(endTs)) {
-        if (Number.isFinite(plannedEndTs)) {
-          endTs = plannedEndTs;
+        if (Number.isFinite(deadlineTs)) {
+          endTs = deadlineTs;
         } else {
           endTs = startTs + durationMs;
         }
@@ -343,16 +348,20 @@ const ProjectDetailPage = () => {
       // Обычная задача: если нет дат, считаем от дедлайна проекта или зависимостей.
       const depAnchor = hasDependencies && hasDepsEnd ? (latestPredEndTs as number) : NaN;
       const depEndAnchor = Number.isFinite(depEndConstraint) ? depEndConstraint : depAnchor;
-      const deadlineAnchor = hasDependencies && Number.isFinite(projectDeadlineTs) ? projectDeadlineTs : depAnchor;
+      const deadlineAnchor = Number.isFinite(deadlineTs)
+        ? deadlineTs
+        : hasDependencies && Number.isFinite(projectDeadlineTs)
+          ? projectDeadlineTs
+          : depAnchor;
       const endAnchor = Number.isFinite(plannedEndTs)
         ? plannedEndTs
-        : Number.isFinite(endTs)
-          ? endTs
-          : Number.isFinite(depEndAnchor)
-            ? depEndAnchor
-          : Number.isFinite(projectDeadlineTs) && (hasDependencies || durationOnly)
-            ? projectDeadlineTs
-            : NaN;
+        : Number.isFinite(depEndAnchor)
+          ? depEndAnchor
+          : Number.isFinite(deadlineTs)
+            ? deadlineTs
+            : Number.isFinite(projectDeadlineTs) && (hasDependencies || durationOnly)
+              ? projectDeadlineTs
+              : NaN;
 
       if (!Number.isFinite(endTs)) {
         endTs = Number.isFinite(endAnchor) ? endAnchor : startTs + durationMs;
@@ -405,16 +414,16 @@ const ProjectDetailPage = () => {
 
     const startIso = new Date(startTs).toISOString();
     const endIso = new Date(endTs).toISOString();
-    const finalEnd = endIso;
+    const deadlineIso = Number.isFinite(deadlineTs) ? new Date(deadlineTs).toISOString() : null;
 
     const payload = {
       title: values.title.trim(),
       description: values.description.trim() || "Нет описания задачи",
-      duration: durationHours,
+      duration: durationDays,
       plannedStart: startIso,
-      plannedEnd: new Date(endIso).toISOString(),
-      deadline: new Date(finalEnd).toISOString(),
-      autoScheduled: Boolean(values.deadline && !values.plannedStart),
+      plannedEnd: endIso,
+      deadline: deadlineIso,
+      autoScheduled: Boolean(deadlineIso && !values.plannedStart),
       completionRule: values.completionRule,
       parentId: parentTask ? parentTask.id : null,
       assigneeIds: values.assigneeIds,
@@ -426,7 +435,7 @@ const ProjectDetailPage = () => {
       outcome: {
         description: values.outcomeDescription.trim() || "Результат не задан",
         acceptanceCriteria: values.outcomeAcceptanceCriteria.trim() || "Критерии не заданы",
-        deadline: new Date(finalEnd).toISOString(),
+        deadline: endIso,
       },
     };
 

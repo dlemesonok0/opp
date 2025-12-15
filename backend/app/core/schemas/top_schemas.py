@@ -58,6 +58,7 @@ class TaskAssigneeOut(ORM):
     id: UUID
     task_id: UUID
     user_id: UUID
+    membership_id: UUID | None = None
     is_completed: bool
     completed_at: Optional[datetime] = None
 
@@ -88,7 +89,7 @@ class ProjectMembershipOut(ProjectOut):
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    description: str
+    description: Optional[str] = None
     duration: float = Field(ge=0, default=0)
     plannedStart: datetime
     plannedEnd: datetime
@@ -135,7 +136,7 @@ class TaskOut(ORM):
     project_id: UUID
     parent_id: Optional[UUID]
     title: str
-    description: str
+    description: Optional[str] = None
     status: str
     duration: float
     planned_start: datetime
@@ -219,6 +220,8 @@ class ReviewTaskOut(ORM):
     id: UUID
     task_id: UUID
     reviewer_id: UUID
+    reviewer_email: str | None = None
+    reviewer_name: str | None = None
     status: ReviewStatus
     comment: Optional[str] = None
     com_reviewer: Optional[str] = None
@@ -229,6 +232,8 @@ class ReviewProjectOut(ORM):
     id: UUID
     project_id: UUID
     reviewer_id: UUID
+    reviewer_email: str | None = None
+    reviewer_name: str | None = None
     status: ReviewStatus
     comment: Optional[str] = None
     com_reviewer: Optional[str] = None

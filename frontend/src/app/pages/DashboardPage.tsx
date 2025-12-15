@@ -234,10 +234,8 @@ const DashboardPage = () => {
                     <h4>{project.title}</h4>
                     <p className="muted">{project.description}</p>
                   </div>
-                  <span className="tag">{project.team_name ?? "Без команды"}</span>
                 </header>
                 <div className="project-meta">
-                  <span>Команда: {project.team_name ?? "пока не назначена"}</span>
                   <span>
                     Дедлайн: {new Date(project.outcome.deadline).toLocaleDateString("ru-RU")}
                   </span>

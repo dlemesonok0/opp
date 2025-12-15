@@ -138,6 +138,10 @@ textarea.input {
   border-radius: 10px;
   padding: 8px 14px;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .danger-btn {
@@ -421,6 +425,28 @@ textarea.input {
   overflow: hidden;
 }
 
+.gantt-deadline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  opacity: 0.9;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.gantt-deadline::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fff;
+}
+
 .gantt-bar {
   position: absolute;
   top: 6px;
@@ -487,6 +513,27 @@ textarea.input {
   font-size: 0.9rem;
 }
 
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topbar__nav a {
+  color: #e5e7eb;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.topbar__nav a:hover,
+.topbar__nav a:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
 .gantt-bar__label {
   white-space: nowrap;
   overflow: hidden;
@@ -496,8 +543,6 @@ textarea.input {
 .gantt-bar--planned { background: #c7d2fe; }
 .gantt-bar--progress { background: #bfdbfe; }
 .gantt-bar--done { background: #bbf7d0; }
-.gantt-bar--blocked { background: #fecdd3; }
-.gantt-bar--cancelled { background: #e5e7eb; }
 
 .legend-dot {
   display: inline-block;
@@ -509,7 +554,6 @@ textarea.input {
 .legend-dot--planned { background: #c7d2fe; }
 .legend-dot--progress { background: #bfdbfe; }
 .legend-dot--done { background: #bbf7d0; }
-.legend-dot--blocked { background: #fecdd3; }
 
 .gantt-legend {
   display: flex;
