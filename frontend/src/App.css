@@ -60,6 +60,8 @@
 .page-header h1 {
   margin: 0;
   font-size: 2rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .page-header p {
@@ -246,6 +248,12 @@ textarea.input {
   gap: 8px;
 }
 
+.project-card h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .project-card dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -261,6 +269,8 @@ textarea.input {
 
 .project-card dd {
   margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dashboard-hero {
@@ -410,6 +420,8 @@ textarea.input {
 
 .gantt-row__title {
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gantt-row__meta {
@@ -538,6 +550,15 @@ textarea.input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.table td,
+.table th,
+.tag,
+.topbar__text,
+.topbar__user {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gantt-bar--planned { background: #c7d2fe; }

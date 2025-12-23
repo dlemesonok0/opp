@@ -1,4 +1,5 @@
 import React, {createContext, type ReactNode, useContext, useEffect, useState,} from "react";
+import { extractErrorMessage } from "../shared/api/client";
 
 type User = {
     id: string;
@@ -63,7 +64,7 @@ export const AuthProvider: React.FC<Props> = ({children}) => {
                             Authorization: `Bearer ${localStorage.getItem("access_token")}`,
                         },
                     });
-                    if (!res2.ok) throw new Error("cannot fetch profile after refresh");
+                    if (!res2.ok) throw new Error("Не удалось получить профиль после обновления токена");
                     const data2 = (await res2.json()) as User;
                     setUser(data2);
                     setLoading(false);
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<Props> = ({children}) => {
                 }
 
                 if (!res.ok) {
-                    throw new Error("cannot fetch profile");
+                    throw new Error("Не удалось получить профиль");
                 }
 
                 const data = (await res.json()) as User;
@@ -123,7 +124,7 @@ export const AuthProvider: React.FC<Props> = ({children}) => {
         });
 
         if (!res.ok) {
-            throw new Error("Неверный email или пароль");
+            throw new Error(await extractErrorMessage(res));
         }
 
         const data = (await res.json()) as TokenPair;
@@ -144,8 +145,7 @@ export const AuthProvider: React.FC<Props> = ({children}) => {
             body: JSON.stringify({email, password}),
         });
         if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || "Не удалось зарегистрироваться");
+            throw new Error(await extractErrorMessage(res));
         }
         // после регистрации можно сразу логинить
         await login(email, password);
@@ -182,7 +182,7 @@ export const AuthProvider: React.FC<Props> = ({children}) => {
 export const useAuth = (): AuthContextValue => {
     const ctx = useContext(AuthContext);
     if (!ctx) {
-        throw new Error("useAuth must be used inside AuthProvider");
+        throw new Error("useAuth должен использоваться внутри AuthProvider");
     }
     return ctx;
 };

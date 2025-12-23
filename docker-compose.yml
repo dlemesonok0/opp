@@ -15,6 +15,7 @@ services:
   backend:
     build: ./backend
     env_file: .env
+    restart: on-failure
     depends_on:
       - db
     ports:

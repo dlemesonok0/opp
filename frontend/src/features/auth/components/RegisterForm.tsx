@@ -10,9 +10,26 @@ const RegisterForm: React.FC = () => {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const validatePassword = (value: string): string | null => {
+    if (value.length < 8) {
+      return "Пароль должен быть не короче 8 символов";
+    }
+    const hasLetter = /[A-Za-zА-Яа-яЁё]/.test(value);
+    const hasDigit = /\d/.test(value);
+    if (!hasLetter || !hasDigit) {
+      return "Пароль должен содержать буквы и цифры";
+    }
+    return null;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr("");
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setErr(passwordError);
+      return;
+    }
     setLoading(true);
     try {
       await register(email, password);
@@ -49,7 +66,7 @@ const RegisterForm: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             type="password"
             required
-            placeholder="минимум 6 символов"
+            placeholder="минимум 8 символов"
           />
         </div>
         {err && <p className="form-error">{err}</p>}
