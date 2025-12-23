@@ -120,6 +120,7 @@ const ProjectDetailPage = () => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [parentTask, setParentTask] = useState<Task | null>(null);
+  const [taskFormError, setTaskFormError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showProjectReviewerModal, setShowProjectReviewerModal] = useState(false);
   const [projectReviewerEmail, setProjectReviewerEmail] = useState("");
@@ -133,16 +134,21 @@ const ProjectDetailPage = () => {
   const [savingReviewer, setSavingReviewer] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
 
-  const teamAssigneeOption = project?.team_id
-    ? [{ id: project.team_id, type: "team" as const, name: "Вся команда" }]
-    : [];
-  const assigneeOptions = teamAssigneeOption.concat(
-    members.map((m) => ({
-      id: m.id,
-      type: "user" as const,
-      name: m.full_name || m.email,
-      email: m.email,
-    })),
+  const teamAssigneeOption = useMemo(
+    () => (project?.team_id ? [{ id: project.team_id, type: "team" as const, name: "Вся команда" }] : []),
+    [project?.team_id],
+  );
+  const assigneeOptions = useMemo(
+    () =>
+      teamAssigneeOption.concat(
+        members.map((m) => ({
+          id: m.id,
+          type: "user" as const,
+          name: m.full_name || m.email,
+          email: m.email,
+        })),
+      ),
+    [teamAssigneeOption, members],
   );
 
   useEffect(() => {
@@ -440,7 +446,7 @@ const ProjectDetailPage = () => {
     };
 
     setSavingTask(true);
-    setError(null);
+    setTaskFormError(null);
     try {
       if (editingTask) {
         await updateTask(accessToken, editingTask.id, payload);
@@ -452,8 +458,9 @@ const ProjectDetailPage = () => {
       setShowTaskModal(false);
       setEditingTask(null);
       setParentTask(null);
+      setTaskFormError(null);
     } catch (err) {
-      setError((err as Error).message);
+      setTaskFormError((err as Error).message);
     } finally {
       setSavingTask(false);
     }
@@ -585,6 +592,7 @@ const ProjectDetailPage = () => {
   const openTaskModal = (task?: Task | null, parent?: Task | null) => {
     setEditingTask(task ?? null);
     setParentTask(parent ?? null);
+    setTaskFormError(null);
     setShowTaskModal(true);
   };
 
@@ -592,6 +600,7 @@ const ProjectDetailPage = () => {
     setShowTaskModal(false);
     setEditingTask(null);
     setParentTask(null);
+    setTaskFormError(null);
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
@@ -694,6 +703,7 @@ const ProjectDetailPage = () => {
         members={members}
         onClose={closeTaskModal}
         onSubmit={handleSubmitTask}
+        errorMessage={taskFormError}
       />
 
       <InviteModal
@@ -810,6 +820,7 @@ const ProjectDetailPage = () => {
         loadingTasks={loadingTasks}
         savingTask={savingTask}
         accessToken={accessToken}
+        projectDeadline={project?.outcome.deadline ?? null}
         recalculating={recalculating}
         childrenMap={childrenMap}
         hasMembers={hasMembers}

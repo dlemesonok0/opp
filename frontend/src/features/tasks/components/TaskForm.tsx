@@ -30,6 +30,7 @@ type TaskFormProps = {
   members: TeamMember[];
   assignees: Assignee[];
   onSubmit: (values: TaskFormValues) => void;
+  externalError?: string | null;
 };
 
 const emptyValues: TaskFormValues = {
@@ -48,7 +49,7 @@ const emptyValues: TaskFormValues = {
 };
 
 const toInputValue = (value: string) => {
-  // Приводим ISO (UTC) к локали для поля datetime-local, чтобы не было смещения во времени
+  // Преобразуем ISO (UTC) в локальный формат для input datetime-local, чтобы не было смещения по времени
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
@@ -65,10 +66,12 @@ const TaskForm = ({
   parentTask = null,
   members,
   assignees,
+  externalError = null,
 }: TaskFormProps) => {
   const [values, setValues] = useState<TaskFormValues>({ ...emptyValues });
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const displayedError = error ?? externalError;
 
   const availablePredecessors = tasks.filter((t) => !initialTask || t.id !== initialTask.id);
 
@@ -232,14 +235,6 @@ const TaskForm = ({
     };
 
     onSubmit(sanitized);
-    if (mode === "create") {
-      const hasTeamOption = assignees.some((a) => a.type === "team");
-      setValues({
-        ...emptyValues,
-        assignTeam: hasTeamOption && members.length > 0,
-        dependencies: [],
-      });
-    }
   };
 
   return (
@@ -283,6 +278,17 @@ const TaskForm = ({
         />
       </div>
 
+      <div className="form-field">
+        <label htmlFor="deadline">Дедлайн</label>
+        <input
+          id="deadline"
+          type="datetime-local"
+          className="input"
+          value={values.deadline}
+          onChange={(event) => updateField("deadline", event.target.value)}
+        />
+      </div>
+
       <button
         type="button"
         className="ghost-btn"
@@ -293,66 +299,52 @@ const TaskForm = ({
         {showAdvanced ? "Скрыть доп. поля" : "Дополнительные поля"}
       </button>
 
-
       {showAdvanced && (
         <>
-          <div className="grid" style={{ gap: "1rem" }}>
-            <div className="form-field">
-              <label htmlFor="deadline">Deadline</label>
-              <input
-                id="deadline"
-                type="datetime-local"
-                className="input"
-                value={values.deadline}
-                onChange={(event) => updateField("deadline", event.target.value)}
-              />
-            </div>
-          </div>
-
           <div className="form-field">
-            <label htmlFor="planned-start">Planned start (optional)</label>
+            <label htmlFor="planned-start">Плановый старт (необязательно)</label>
             <input
               id="planned-start"
               type="datetime-local"
               className="input"
               value={values.plannedStart}
               onChange={(event) => updateField("plannedStart", event.target.value)}
-              placeholder="Set planned start if needed"
+              placeholder="Укажите плановый старт при необходимости"
             />
           </div>
 
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-            <label htmlFor="task-duration">Duration (days)</label>
-            <input
-              id="task-duration"
-              type="number"
-              min={0}
-              step="0.25"
-              className="input"
-              value={Number.isFinite(values.duration) ? values.duration : ""}
-              onChange={(event) =>
-                updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
-              }
-              placeholder="Enter duration in days (decimals allowed)"
-            />
+              <label htmlFor="task-duration">Длительность (дни)</label>
+              <input
+                id="task-duration"
+                type="number"
+                min={0}
+                step="0.25"
+                className="input"
+                value={Number.isFinite(values.duration) ? values.duration : ""}
+                onChange={(event) =>
+                  updateField("duration", event.target.value === "" ? Number.NaN : Number(event.target.value))
+                }
+                placeholder="Введите длительность в днях (можно дробные значения)"
+              />
             </div>
             <div className="form-field">
-              <label htmlFor="task-rule">Completion rule</label>
+              <label htmlFor="task-rule">Правило завершения</label>
               <select
                 id="task-rule"
                 className="input"
                 value={values.completionRule}
                 onChange={(event) => updateField("completionRule", event.target.value as TaskFormValues["completionRule"])}
               >
-                <option value="AllAssignees">All assignees</option>
-                <option value="AnyOne">Any one</option>
+                <option value="AllAssignees">Все исполнители</option>
+                <option value="AnyOne">Любой</option>
               </select>
             </div>
           </div>
 
           <div className="form-field">
-            <label>Assignees</label>
+            <label>Исполнители</label>
             <div className="stack" style={{ gap: "8px" }}>
               {assignees.some((a) => a.type === "team") && (
                 <label className="muted">
@@ -362,7 +354,7 @@ const TaskForm = ({
                     onChange={(event) => updateField("assignTeam", event.target.checked)}
                     style={{ marginRight: "8px" }}
                   />
-                  Whole team
+                  Вся команда
                 </label>
               )}
               <div className="stack" style={{ gap: "4px" }}>
@@ -394,7 +386,7 @@ const TaskForm = ({
 
           <div className="grid" style={{ gap: "1rem" }}>
             <div className="form-field">
-              <label htmlFor="outcome-description">Outcome description</label>
+              <label htmlFor="outcome-description">Описание результата</label>
               <textarea
                 id="outcome-description"
                 className="input"
@@ -404,7 +396,7 @@ const TaskForm = ({
               />
             </div>
             <div className="form-field">
-              <label htmlFor="outcome-criteria">Acceptance criteria</label>
+              <label htmlFor="outcome-criteria">Критерии приемки</label>
               <textarea
                 id="outcome-criteria"
                 className="input"
@@ -416,7 +408,16 @@ const TaskForm = ({
           </div>
 
           <div className="form-field">
-            <label>Dependencies</label>
+            <label>
+              Зависимости{" "}
+              <span
+                className="muted"
+                title="FS — начало после завершения; FF — завершение после завершения; SS — начало после начала; SF — завершение после начала."
+                style={{ cursor: "help" }}
+              >
+                (?)
+              </span>
+            </label>
             <div className="stack" style={{ gap: "8px" }}>
               {values.dependencies.map((dep, index) => (
                 <div
@@ -456,15 +457,15 @@ const TaskForm = ({
                     className="input"
                     value={dep.lag}
                     onChange={(event) => updateDependency(index, "lag", Number(event.target.value))}
-                    placeholder="lag"
+                    placeholder="задержка"
                   />
                   <button
                     type="button"
                     className="ghost-btn"
                     onClick={() => removeDependency(index)}
-                    aria-label="Remove dependency"
+                    aria-label="Удалить зависимость"
                   >
-                    ×
+                    x
                   </button>
                 </div>
               ))}
@@ -474,19 +475,18 @@ const TaskForm = ({
                 onClick={addDependency}
                 disabled={availablePredecessors.length === 0}
               >
-                Add dependency
+                Добавить зависимость
               </button>
               {availablePredecessors.length === 0 && (
                 <p className="muted" style={{ margin: 0 }}>
-                  No tasks available to link as a dependency.
+                  Нет задач для связывания в зависимость.
                 </p>
               )}
             </div>
           </div>
         </>
       )}
-
-      {error && <p className="form-error">{error}</p>}
+      {displayedError && <p className="form-error">{displayedError}</p>}
 
       <div className="form-actions">
         <button className="primary-btn" type="submit" disabled={loading}>

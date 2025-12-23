@@ -64,6 +64,37 @@
   word-break: break-word;
 }
 
+.page-content h1,
+.page-content h2,
+.page-content h3,
+.page-content h4,
+.page-content h5,
+.page-content h6,
+.page-content p,
+.page-content strong,
+.page-content span,
+.card h1,
+.card h2,
+.card h3,
+.card h4,
+.card h5,
+.card h6,
+.card p,
+.card strong,
+.card span,
+.modal h1,
+.modal h2,
+.modal h3,
+.modal h4,
+.modal h5,
+.modal h6,
+.modal p,
+.modal strong,
+.modal span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .page-header p {
   margin: 4px 0 0;
   color: #6b7280;
@@ -175,11 +206,21 @@ textarea.input {
   gap: 8px;
 }
 
+.project-card .table-actions {
+  flex-wrap: wrap;
+}
+
 .table-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.table-header > div {
+  min-width: 0;
 }
 
 .tag {
@@ -190,6 +231,11 @@ textarea.input {
   font-size: 0.85rem;
 }
 
+.tag.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .muted {
   color: #6b7280;
   margin: 0;
@@ -197,6 +243,11 @@ textarea.input {
 
 .form-error {
   color: #dc2626;
+  margin: 0;
+}
+
+.form-warning {
+  color: #b45309;
   margin: 0;
 }
 
@@ -663,6 +714,21 @@ textarea.input {
     grid-template-columns: 1fr;
   }
 
+  .table-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-card header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .topbar {
     flex-direction: column;
     align-items: stretch;
@@ -704,5 +770,14 @@ textarea.input {
 
   .topbar__nav a {
     padding: 4px 8px;
+  }
+
+  .project-card .table-actions {
+    width: 100%;
+  }
+
+  .project-card .table-actions button {
+    width: 100%;
+    justify-content: center;
   }
 }

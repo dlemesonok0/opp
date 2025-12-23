@@ -7,6 +7,7 @@ type TasksSectionProps = {
   loadingTasks: boolean;
   savingTask: boolean;
   accessToken: string | null;
+  projectDeadline: string | null;
   childrenMap: Map<string, Task[]>;
   hasMembers: boolean;
   currentUserId: string | null;
@@ -25,6 +26,7 @@ const TasksSection = ({
   loadingTasks,
   savingTask,
   accessToken,
+  projectDeadline,
   childrenMap,
   hasMembers,
   currentUserId,
@@ -88,6 +90,10 @@ const TasksSection = ({
     const canComplete =
       Boolean(currentAssignment) && !currentAssignment?.is_completed && task.status !== "Done" && !savingTask;
     const youCompleted = Boolean(currentAssignment?.is_completed);
+    const taskDeadlineMs = new Date(task.deadline ?? task.planned_end).getTime();
+    const projectDeadlineMs = projectDeadline ? new Date(projectDeadline).getTime() : Number.NaN;
+    const isAfterProjectDeadline =
+      Number.isFinite(taskDeadlineMs) && Number.isFinite(projectDeadlineMs) && taskDeadlineMs > projectDeadlineMs;
 
     return (
       <article
@@ -107,6 +113,7 @@ const TasksSection = ({
           </div>
           <div className="table-actions">
             <span className="tag">{task.status}</span>
+            {isAfterProjectDeadline && <span className="tag warning">Дедлайн задачи позже дедлайна проекта</span>}
             {youCompleted && <span className="tag success">Вы завершили эту задачу</span>}
             {canComplete && (
               <button className="primary-btn" type="button" onClick={() => onCompleteTask(task)} disabled={savingTask}>

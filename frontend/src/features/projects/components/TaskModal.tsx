@@ -12,6 +12,7 @@ type TaskModalProps = {
   members: TeamMember[];
   onClose: () => void;
   onSubmit: (values: TaskFormValues) => void;
+  errorMessage?: string | null;
 };
 
 const TaskModal = ({
@@ -24,6 +25,7 @@ const TaskModal = ({
   members,
   onClose,
   onSubmit,
+  errorMessage = null,
 }: TaskModalProps) => {
   if (!open) return null;
 
@@ -48,6 +50,7 @@ const TaskModal = ({
           parentTask={parentTask}
           assignees={assignees}
           members={members}
+          externalError={errorMessage}
         />
       </div>
     </div>
