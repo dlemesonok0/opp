@@ -17,6 +17,8 @@ type TasksSectionProps = {
   onDeleteTask: (taskId: string) => void;
   onRequestReview: (task: Task) => void;
   onCompleteTask: (task: Task) => void;
+  onCancelTask: (task: Task) => void;
+  onReopenTask: (task: Task) => void;
   onRecalculate: () => void;
   recalculating: boolean;
 };
@@ -36,6 +38,8 @@ const TasksSection = ({
   onDeleteTask,
   onRequestReview,
   onCompleteTask,
+  onCancelTask,
+  onReopenTask,
   onRecalculate,
   recalculating,
 }: TasksSectionProps) => {
@@ -87,8 +91,10 @@ const TasksSection = ({
     const completedCount = assignees.filter((a) => a.is_completed).length;
     const totalAssignees = assignees.length;
     const currentAssignment = currentUserId ? assignees.find((a) => a.user_id === currentUserId) : undefined;
+    const isCanceled = task.status === "Canceled";
+    const isDone = task.status === "Done";
     const canComplete =
-      Boolean(currentAssignment) && !currentAssignment?.is_completed && task.status !== "Done" && !savingTask;
+      Boolean(currentAssignment) && !currentAssignment?.is_completed && !isDone && !isCanceled && !savingTask;
     const youCompleted = Boolean(currentAssignment?.is_completed);
     const taskDeadlineMs = new Date(task.deadline ?? task.planned_end).getTime();
     const projectDeadlineMs = projectDeadline ? new Date(projectDeadline).getTime() : Number.NaN;
@@ -118,6 +124,11 @@ const TasksSection = ({
             {canComplete && (
               <button className="primary-btn" type="button" onClick={() => onCompleteTask(task)} disabled={savingTask}>
                 Завершить
+              </button>
+            )}
+            {isDone && (
+              <button className="ghost-btn" type="button" onClick={() => onReopenTask(task)} disabled={savingTask}>
+                Отменить выполнение
               </button>
             )}
             <button className="ghost-btn" type="button" onClick={() => onEditTask(task)}>

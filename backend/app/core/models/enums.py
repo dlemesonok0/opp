@@ -5,6 +5,7 @@ class TaskStatus(str, enum.Enum):
     Planned = "Planned"
     InProgress = "InProgress"
     Done = "Done"
+    Canceled = "Canceled"
 
 
 class DepType(str, enum.Enum):

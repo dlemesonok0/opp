@@ -15,6 +15,8 @@ import {
   listProjectTasks,
   updateTask,
   completeTask,
+  cancelTask,
+  reopenTask,
   recalcProjectTasks,
   type Task,
 } from "../../tasks/api/taskApi";
@@ -589,6 +591,40 @@ const ProjectDetailPage = () => {
     }
   };
 
+  const handleCancelTask = async (task: Task) => {
+    if (!accessToken || !projectId) return;
+    const confirmed = window.confirm("Отменить выполнение этой задачи?");
+    if (!confirmed) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await cancelTask(accessToken, task.id);
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleReopenTask = async (task: Task) => {
+    if (!accessToken || !projectId) return;
+    const confirmed = window.confirm("Вернуть задачу в работу?");
+    if (!confirmed) return;
+    setSavingTask(true);
+    setError(null);
+    try {
+      await reopenTask(accessToken, task.id);
+      const updated = await listProjectTasks(accessToken, projectId);
+      setTasks(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   const openTaskModal = (task?: Task | null, parent?: Task | null) => {
     setEditingTask(task ?? null);
     setParentTask(parent ?? null);
@@ -837,6 +873,8 @@ const ProjectDetailPage = () => {
           setReviewerError(null);
         }}
         onCompleteTask={(task) => void handleCompleteTask(task)}
+        onCancelTask={(task) => void handleCancelTask(task)}
+        onReopenTask={(task) => void handleReopenTask(task)}
       />
 
       <TimelineSection tasks={tasks} timeline={timeline} axisTicks={axisTicks} />

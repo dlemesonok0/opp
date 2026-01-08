@@ -152,6 +152,18 @@ export const completeTask = (token: string, taskId: string, result?: string | nu
     body: result !== undefined ? JSON.stringify({ result }) : undefined,
   });
 
+export const cancelTask = (token: string, taskId: string) =>
+  apiRequest<Task>(`/tasks/${taskId}/cancel`, {
+    method: "POST",
+    token,
+  });
+
+export const reopenTask = (token: string, taskId: string) =>
+  apiRequest<Task>(`/tasks/${taskId}/reopen`, {
+    method: "POST",
+    token,
+  });
+
 export const addTaskReviewer = (token: string, taskId: string, payload: ReviewCreatePayload) =>
   apiRequest<TaskReview>(`/tasks/${taskId}/reviews`, {
     method: "POST",

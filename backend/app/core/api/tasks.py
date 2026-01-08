@@ -48,7 +48,7 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
     project_deadline = project.outcome.deadline if project and project.outcome else None
     tasks = db.query(Task).filter(Task.project_id == project_id).all()
     by_id = {t.id: t for t in tasks}
-    movable_tasks = [t for t in tasks if t.status != TaskStatus.Done]
+    movable_tasks = [t for t in tasks if t.status not in (TaskStatus.Done, TaskStatus.Canceled)]
     deps = (
         db.query(Dependency)
         .join(Task, Dependency.successor_task_id == Task.id)
@@ -62,7 +62,7 @@ def _recalculate_project_schedule(db: Session, project_id: UUID):
         deps_by_pred.setdefault(dep.predecessor_task_id, []).append(dep)
 
     def ensure_times(task: Task):
-        if task.status == TaskStatus.Done:
+        if task.status in (TaskStatus.Done, TaskStatus.Canceled):
             return
         # duration хранится в днях; переводим в часы для расчётов
         dur_hours = max(float(task.duration or 0) * 24.0, 1.0 / 60.0)
@@ -751,6 +751,8 @@ def complete_task_for_assignee(
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(404, "Task not found")
+    if task.status == TaskStatus.Canceled:
+        raise HTTPException(400, "Task is canceled")
 
     assignees_q = db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id)
     total_assignees = assignees_q.count()
@@ -782,6 +784,53 @@ def complete_task_for_assignee(
         task.actual_end = task.actual_end or now
     else:
         _apply_completion_rule(db, task, now)
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+@plain_router.post("/{task_id}/cancel", response_model=TaskOut)
+def cancel_task(
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    if task.status == TaskStatus.Done:
+        raise HTTPException(400, "Completed task cannot be canceled")
+    if task.status == TaskStatus.Canceled:
+        return task
+
+    now = datetime.utcnow()
+    task.status = TaskStatus.Canceled
+    task.actual_end = task.actual_end or now
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+@plain_router.post("/{task_id}/reopen", response_model=TaskOut)
+def reopen_task(
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    if task.status == TaskStatus.Canceled:
+        raise HTTPException(400, "Task is canceled")
+    if task.status != TaskStatus.Done:
+        raise HTTPException(400, "Task is not completed")
+
+    task.status = TaskStatus.InProgress
+    task.actual_end = None
+
+    db.query(TaskAssignee).filter(TaskAssignee.task_id == task.id).update(
+        {"is_completed": False, "completed_at": None}
+    )
     db.commit()
     db.refresh(task)
     return task
