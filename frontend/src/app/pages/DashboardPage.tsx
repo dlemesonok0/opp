@@ -43,8 +43,16 @@ const DashboardPage = () => {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
 
+  const toInputValue = (value: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    const tzOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+  };
+
   const defaultOutcomeDeadline = () =>
-    new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 16);
+    toInputValue(new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString());
 
   const fetchMyProjects = useCallback(async () => {
     if (!accessToken) return;

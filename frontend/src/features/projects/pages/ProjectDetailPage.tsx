@@ -577,13 +577,13 @@ const ProjectDetailPage = () => {
   const handleCompleteTask = async (task: Task) => {
     if (!accessToken || !projectId) return;
     const resultInput = window.prompt("Добавьте результат выполнения (ссылка, текст)", task.outcome.result ?? "");
+    if (resultInput === null) return;
     const result = resultInput !== null ? resultInput.trim() : undefined;
     setSavingTask(true);
     setError(null);
     try {
-      await completeTask(accessToken, task.id, result === "" ? null : result);
-      const updated = await listProjectTasks(accessToken, projectId);
-      setTasks(updated);
+      const updatedTask = await completeTask(accessToken, task.id, result === "" ? null : result);
+      setTasks((prev) => prev.map((item) => (item.id === updatedTask.id ? updatedTask : item)));
     } catch (err) {
       setError((err as Error).message);
     } finally {

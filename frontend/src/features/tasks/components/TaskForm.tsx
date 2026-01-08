@@ -423,12 +423,18 @@ const TaskForm = ({
                 <div
                   key={`${dep.predecessorId}-${index}`}
                   className="dependency-row"
-                  style={{ display: "grid", gap: "8px", gridTemplateColumns: "1fr 120px 120px auto", alignItems: "center" }}
+                  style={{
+                    display: "grid",
+                    gap: "8px",
+                    gridTemplateColumns: "minmax(0, 1fr) 120px 120px auto",
+                    alignItems: "center",
+                  }}
                 >
                   <select
                     className="input"
                     value={dep.predecessorId}
                     onChange={(event) => updateDependency(index, "predecessorId", event.target.value)}
+                    style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                   >
                     {availablePredecessors.map((task) => (
                       <option key={task.id} value={task.id}>
@@ -457,6 +463,7 @@ const TaskForm = ({
                     className="input"
                     value={dep.lag}
                     onChange={(event) => updateDependency(index, "lag", Number(event.target.value))}
+                    title="Сдвиг в часах относительно выбранной зависимости"
                     placeholder="задержка"
                   />
                   <button
