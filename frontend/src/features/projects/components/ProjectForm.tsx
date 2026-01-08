@@ -27,6 +27,14 @@ const emptyValues: ProjectFormValues = {
   outcomeResult: "",
 };
 
+const toInputValue = (value: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const tzOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+};
+
 const ProjectForm = ({
   mode,
   initialProject,
@@ -44,7 +52,7 @@ const ProjectForm = ({
         description: initialProject.description,
         outcomeDescription: initialProject.outcome.description,
         outcomeAcceptanceCriteria: initialProject.outcome.acceptance_criteria,
-        outcomeDeadline: initialProject.outcome.deadline.slice(0, 16),
+        outcomeDeadline: toInputValue(initialProject.outcome.deadline),
         outcomeResult: initialProject.outcome.result ?? "",
       });
       setShowExtras(true);
