@@ -515,6 +515,8 @@ def update_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_db
         if payload.plannedStart is None and t.planned_start and payload.plannedEnd < t.planned_start:
             raise HTTPException(400, "plannedEnd must be >= plannedStart")
         t.planned_end = payload.plannedEnd
+    if deadline_provided and payload.deadline is not None and t.planned_start and payload.deadline < t.planned_start:
+        raise HTTPException(400, "deadline must be >= plannedStart")
     if deadline_provided:
         t.deadline = payload.deadline
     if payload.autoScheduled is not None:

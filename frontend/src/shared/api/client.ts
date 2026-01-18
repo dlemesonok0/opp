@@ -46,6 +46,7 @@ const DIRECT_TRANSLATIONS: Record<string, string> = {
   "dependency predecessor must be in the same project":
     "Предшественник зависимости должен быть в том же проекте",
   "plannedEnd must be >= plannedStart": "Дата окончания должна быть не раньше даты начала",
+  "deadline must be >= plannedStart": "Дедлайн должен быть не раньше даты начала",
   "Project has no team; only team members can view it":
     "У проекта нет команды; просматривать могут только участники команды",
   "Project has no team; only team members can edit it":

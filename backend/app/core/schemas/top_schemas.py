@@ -109,6 +109,14 @@ class TaskCreate(BaseModel):
             raise ValueError("plannedEnd must be >= plannedStart")
         return v
 
+    @field_validator("deadline")
+    @classmethod
+    def _deadline_not_before_start(cls, v: Optional[datetime], info: ValidationInfo):
+        start = info.data.get("plannedStart")
+        if v and start and v < start:
+            raise ValueError("deadline must be >= plannedStart")
+        return v
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
@@ -129,6 +137,14 @@ class TaskUpdate(BaseModel):
         start = info.data.get("plannedStart")
         if start and v and v < start:
             raise ValueError("plannedEnd must be >= plannedStart")
+        return v
+
+    @field_validator("deadline")
+    @classmethod
+    def _upd_deadline_not_before_start(cls, v: Optional[datetime], info: ValidationInfo):
+        start = info.data.get("plannedStart")
+        if v and start and v < start:
+            raise ValueError("deadline must be >= plannedStart")
         return v
 
 class TaskOut(ORM):
