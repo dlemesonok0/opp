@@ -412,6 +412,7 @@ textarea.input {
   flex-direction: column;
   gap: 12px;
   min-width: 1200px;
+  position: relative;
 }
 
 .gantt-wrapper {
@@ -522,7 +523,53 @@ textarea.input {
   padding-left: 8px;
   color: #0b1324;
   font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 2;
 }
+
+.gantt-bar--active {
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25), inset 0 0 0 2px #1d4ed8;
+}
+
+.gantt-bar--linked {
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25), inset 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+.gantt-links {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.gantt-link {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gantt-link__label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.gantt-link--fs { color: #2563eb; }
+.gantt-link--ss { color: #0ea5e9; }
+.gantt-link--ff { color: #10b981; }
+.gantt-link--sf { color: #f97316; }
+.gantt-link--ss .gantt-link { stroke-dasharray: 6 4; }
+.gantt-link--ff .gantt-link { stroke-dasharray: 2 4; }
+.gantt-link--sf .gantt-link { stroke-dasharray: 10 4; }
 
 .topbar {
   position: sticky;
