@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, DeclarativeBase
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    DATABASE_URL: str =  os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@db:5432/postgres")
+    DATABASE_URL: str =  os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
 settings = Settings()
 
