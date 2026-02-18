@@ -1,25 +1,31 @@
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
-
-def test_register_wrong_creds():
-    r = client.post("auth/register", json={
+def test_register_wrong_creds(client):
+    r = client.post("/auth/register", json={
         "email": "qwerty",
         "password": "123456",
     })
 
     assert r.status_code == 422
 
-def test_register_positive():
-    r = client.post("auth/register", json={
+def test_register_positive(client):
+    r = client.post("/auth/register", json={
         "email": "qwer@qwerty.com",
         "password": "qyu347#IUJNK",
     })
 
-    assert r.status_code == 400
+    assert r.status_code == 201
 
-def test_get_token():
+    dup = client.post("/auth/register", json={
+        "email": "qwer@qwerty.com",
+        "password": "qyu347#IUJNK",
+    })
+    assert dup.status_code == 400
+
+def test_get_token(client):
+    client.post("/auth/register", json={
+        "email": "qwer@qwerty.com",
+        "password": "qyu347#IUJNK",
+    })
+
     response = client.post(
         "/auth/token",
         data={
